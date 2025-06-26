@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps Dev</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const gebetaMap = new window.GebetaMaps({ apiKey: 'YOUR_API_KEY' });
+      const map = gebetaMap.init({
+        container: 'map',
+        center: [38.7685, 9.0161],
+        zoom: 15,
+      });
+      map.on('load', () => {
+        gebetaMap.addNavigationControls();
+      });
+      map.on('click', (e) => {
+        const lngLat = [e.lngLat.lng, e.lngLat.lat];
+        gebetaMap.addFencePoint(lngLat);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'c') {
+          gebetaMap.clearFence();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

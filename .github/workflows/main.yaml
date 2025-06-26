@@ -1,0 +1,40 @@
+name: Build and Deploy Gebeta Maps Lib
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Setup SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MAP_TILE_SERVER_SSH_KEY }}
+
+      - name: Deploy to Server
+        env:
+          SERVER_USER: ${{ secrets.MAP_TILE_SERVER_USER }}
+          SERVER_IP: ${{ secrets.MAP_TILE_SERVER_IP }}
+        run: |
+          echo "Deploying to Dev environment"
+          NEW_VERSION=${{ github.sha }}
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "mkdir -p ~/static/files/gebeta-maps-lib/releases/$NEW_VERSION"
+          scp -o StrictHostKeyChecking=no -r dist/* $SERVER_USER@$SERVER_IP:~/static/files/gebeta-maps-lib/releases/$NEW_VERSION
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "ln -sfn ~/static/files/gebeta-maps-lib/releases/$NEW_VERSION ~/static/files/gebeta-maps-lib/current"
