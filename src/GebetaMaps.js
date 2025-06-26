@@ -21,6 +21,18 @@ class GebetaMaps {
       ...options,
       style: styleUrl,
       attributionControl: false,
+      transformRequest: (url, resourceType) => {
+        // Only add the Authorization header for requests to tiles.gebeta.app
+        if (url.startsWith('https://tiles.gebeta.app')) {
+          return {
+            url,
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+            },
+          };
+        }
+        return { url };
+      },
     });
 
     this.addGebetaLogo();
