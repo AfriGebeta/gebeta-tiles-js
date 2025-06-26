@@ -53,12 +53,17 @@
     <h3>Core Features - Fence Drawing</h3>
     <button onclick="addFencePoint()">Add Fence Point (Click Map)</button>
     <button onclick="addCustomFencePoint()">Add Custom Fence Point</button>
-    <button onclick="clearFence()">Clear Fence (C)</button>
+    <button onclick="clearFence()">Clear Current Fence (C)</button>
+    <button onclick="clearAllFences()">Clear All Fences</button>
     <div class="info">
       <strong>Instructions:</strong><br>
       • Click on the map to add fence points<br>
-      • Add at least 3 points to draw a fence<br>
-      • Press 'C' to clear the fence<br>
+      • A red dashed line follows your cursor while drawing<br>
+      • Click on any existing fence point to close the fence<br>
+      • Add at least 3 points to draw a complete fence<br>
+      • Click outside a completed fence to start a new one<br>
+      • Multiple fences can coexist on the map<br>
+      • Press 'C' to clear the current fence<br>
       • Custom fence points can have custom images
     </div>
   </div>
@@ -90,6 +95,29 @@
         gebetaMap.on('click', (e) => {
             const lngLat = [e.lngLat.lng, e.lngLat.lat];
             gebetaMap.addFencePoint(lngLat);
+            
+            // Check if fence is completed after adding the point
+            if (gebetaMap.isFenceCompleted()) {
+                console.log('🎉 Fence completed!');
+                
+                // Update the info panel to show completion
+                const infoPanel = document.querySelector('.info');
+                if (infoPanel) {
+                    infoPanel.innerHTML = `
+                        <strong>✅ Fence Completed!</strong><br>
+                        • Click outside the fence to start a new one<br>
+                        • Press 'C' to clear the current fence<br>
+                        • Add at least 3 points to draw a complete fence
+                    `;
+                }
+                
+                // You can add any custom logic here when fence is completed
+                // For example:
+                // - Save the fence coordinates to a database
+                // - Enable other UI controls
+                // - Trigger analytics events
+                // - etc.
+            }
         });
 
         document.addEventListener('keydown', (e) => {
@@ -135,6 +163,43 @@
         if (!gebetaMap) return;
         gebetaMap.clearFence();
         console.log('Fence cleared');
+        
+        // Reset the info panel
+        const infoPanel = document.querySelector('.info');
+        if (infoPanel) {
+            infoPanel.innerHTML = `
+                <strong>Instructions:</strong><br>
+                • Click on the map to add fence points<br>
+                • A red dashed line follows your cursor while drawing<br>
+                • Click on any existing fence point to close the fence<br>
+                • Add at least 3 points to draw a complete fence<br>
+                • Click outside a completed fence to start a new one<br>
+                • Press 'C' to clear the fence<br>
+                • Custom fence points can have custom images
+            `;
+        }
+    }
+
+    function clearAllFences() {
+        if (!gebetaMap) return;
+        gebetaMap.clearAllFences();
+        console.log('All fences cleared');
+        
+        // Reset the info panel
+        const infoPanel = document.querySelector('.info');
+        if (infoPanel) {
+            infoPanel.innerHTML = `
+                <strong>Instructions:</strong><br>
+                • Click on the map to add fence points<br>
+                • A red dashed line follows your cursor while drawing<br>
+                • Click on any existing fence point to close the fence<br>
+                • Add at least 3 points to draw a complete fence<br>
+                • Click outside a completed fence to start a new one<br>
+                • Multiple fences can coexist on the map<br>
+                • Press 'C' to clear the current fence<br>
+                • Custom fence points can have custom images
+            `;
+        }
     }
 </script>
 
