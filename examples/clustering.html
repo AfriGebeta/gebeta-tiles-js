@@ -53,14 +53,33 @@
     <button onclick="addMultipleClusteredMarkers()">Add Clustered Markers</button>
     <button onclick="addSpreadOutMarkers()">Add Spread Out Markers</button>
     <button onclick="testCustomClusterImage()">Test Custom Cluster Image</button>
-    <button onclick="toggleClusterCount()">Toggle Count Badge</button>
+    <button id="toggleCountBtn" onclick="toggleClusterCount()" style="display: none;">Toggle Count Badge</button>
     <button onclick="clearAllMarkers()">Clear All Markers</button>
+    
+    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+      <button onclick="toggleAdvancedSettings()" style="font-size: 12px; padding: 6px 10px; width: 100%;">
+        <span id="advancedToggleText">▼ Advanced Settings (beta)</span>
+      </button>
+      <div id="advancedSettings" style="display: none; margin-top: 10px;">
+        <div style="margin-bottom: 8px;">
+          <label style="display: block; font-size: 11px; margin-bottom: 3px;">Cluster Radius: <span id="radiusValue" style="font-weight: bold; color: #007bff;">50px</span></label>
+          <input type="range" id="radiusSlider" min="20" max="100" value="50" style="width: 100%;">
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label style="display: block; font-size: 11px; margin-bottom: 3px;">Max Zoom Level: <span id="maxZoomValue" style="font-weight: bold; color: #007bff;">16</span></label>
+          <input type="range" id="maxZoomSlider" min="12" max="20" value="16" style="width: 100%;">
+        </div>
+        <button onclick="applyAdvancedSettings()" style="font-size: 11px; padding: 4px 8px;">Apply</button>
+      </div>
+    </div>
+    
     <div class="info">
       <strong>Instructions:</strong><br>
       • "Add Clustered Markers" adds 5 markers close together<br>
       • "Add Spread Out Markers" adds 3 markers far apart<br>
       • "Test Custom Cluster Image" cycles through different cluster images<br>
-      • "Toggle Count Badge" shows/hides count on custom images<br>
+      • Toggle Count Badge only appears with custom images<br>
+      • Adjust radius and max zoom in Advanced Settings<br>
       • Zoom out to see clustering in action<br>
       • Click clusters to zoom in and spread them out
     </div>
@@ -80,11 +99,11 @@
             enabled: true,
             radius: 50,
             maxZoom: 16,
-            clusterImage: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png', // Custom cluster image
+            clusterImage: null, // default cluster with no custom image
             showClusterCount: false, // Don't show count with custom image by default
             clusterOnClick: (cluster, event) => {
                 // Custom cluster click handler (optional)
-                console.log('Cluster clicked:', cluster.properties.point_count, 'markers');
+                alert('Cluster clicked:', cluster.properties.point_count, 'markers');
                 // Default zoom behavior will be used if not overridden
             }
         };
@@ -102,6 +121,9 @@
 
         map.on('load', () => {
             gebetaMap.addNavigationControls();
+            
+            // Initialize slider event listeners
+            initializeSliders();
         });
 
         map.on('error', (e) => {
@@ -114,6 +136,32 @@
             }
         });
     });
+
+    function initializeSliders() {
+        // Radius slider
+        const radiusSlider = document.getElementById('radiusSlider');
+        const radiusValue = document.getElementById('radiusValue');
+        
+        radiusSlider.addEventListener('input', (e) => {
+            radiusValue.textContent = e.target.value + 'px';
+        });
+
+        // Max zoom slider
+        const maxZoomSlider = document.getElementById('maxZoomSlider');
+        const maxZoomValue = document.getElementById('maxZoomValue');
+        
+        maxZoomSlider.addEventListener('input', (e) => {
+            maxZoomValue.textContent = e.target.value;
+        });
+    }
+
+    function updateToggleButtonVisibility() {
+        const toggleBtn = document.getElementById('toggleCountBtn');
+        if (!gebetaMap || !gebetaMap.clusteringManager) return;
+        
+        const hasCustomImage = gebetaMap.clusteringManager.options.clusterImage !== null;
+        toggleBtn.style.display = hasCustomImage ? 'block' : 'none';
+    }
 
     function addMultipleClusteredMarkers() {
         if (!gebetaMap) return;
@@ -187,6 +235,9 @@
         // Force update to see the change
         gebetaMap.clusteringManager.updateClustering();
         
+        // Update toggle button visibility
+        updateToggleButtonVisibility();
+        
         const imageName = newImage ? 'Custom Image' : 'Default Blue Circle';
         console.log(`Changed cluster image to: ${imageName}`);
         alert(`Cluster image changed to: ${imageName}`);
@@ -207,6 +258,36 @@
         if (!gebetaMap) return;
         gebetaMap.clearAllMarkers();
         console.log('All markers cleared');
+    }
+
+    function applyAdvancedSettings() {
+        if (!gebetaMap || !gebetaMap.clusteringManager) return;
+        
+        const radius = parseInt(document.getElementById('radiusSlider').value);
+        const maxZoom = parseInt(document.getElementById('maxZoomSlider').value);
+        
+        // Update clustering options
+        gebetaMap.clusteringManager.options.radius = radius;
+        gebetaMap.clusteringManager.options.maxZoom = maxZoom;
+        
+        // Force update to apply new settings
+        gebetaMap.clusteringManager.updateClustering();
+        
+        console.log(`Applied new settings: radius=${radius}px, maxZoom=${maxZoom}`);
+        alert(`Applied new clustering settings:\nRadius: ${radius}px\nMax Zoom: ${maxZoom}`);
+    }
+
+    function toggleAdvancedSettings() {
+        const advancedSettings = document.getElementById('advancedSettings');
+        const advancedToggleText = document.getElementById('advancedToggleText');
+        
+        if (advancedSettings.style.display === 'none') {
+            advancedSettings.style.display = 'block';
+            advancedToggleText.textContent = '▲ Advanced Settings (beta)';
+        } else {
+            advancedSettings.style.display = 'none';
+            advancedToggleText.textContent = '▼ Advanced Settings (beta)';
+        }
     }
 </script>
 
