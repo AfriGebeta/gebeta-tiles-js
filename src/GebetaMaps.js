@@ -3,73 +3,135 @@ import './style.css';
 
 class GebetaMaps {
   constructor({ apiKey }) {
+    if (!apiKey) {
+      console.error("An API key is required for Gebeta Maps.");
+    }
     this.apiKey = apiKey;
     this.map = null;
     this.fencePoints = [];
-    this.fenceLayerId = 'fence-polygon';
+    this.fenceSourceId = 'fence';
+    this.fenceLayerId = 'fence-fill';
+    this.markerList = [];
   }
 
-  init({ container, center, zoom }) {
+  init(options) {
+    const styleUrl = `https://tiles.gebeta.app/styles/standard/style.json`;
+
     this.map = new maplibregl.Map({
-      container,
-      style: `https://tiles.gebeta.app/styles/osm-bright/style.json?key=${this.apiKey}`,
-      center,
-      zoom,
+      ...options,
+      style: styleUrl,
+      attributionControl: false,
     });
+
+    this.addGebetaLogo();
+    this.addCustomAttribution();
+
     return this.map;
   }
 
-  addNavigationControls() {
-    if (this.map) {
-      this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    }
+  on(event, handler) {
+    if (!this.map) throw new Error("Map not initialized. Call init() first.");
+    this.map.on(event, handler);
+  }
+
+  addNavigationControls(position = 'top-right') {
+    if (!this.map) throw new Error("Map not initialized. Call init() first.");
+    this.map.addControl(new maplibregl.NavigationControl(), position);
+  }
+
+  addImageMarker(lngLat, imageUrl, size = [30, 30]) {
+    if (!this.map) throw new Error("Map not initialized.");
+
+    const el = document.createElement('div');
+    el.style.backgroundImage = `url('${imageUrl}')`;
+    el.style.backgroundSize = 'contain';
+    el.style.backgroundRepeat = 'no-repeat';
+    el.style.width = `${size[0]}px`;
+    el.style.height = `${size[1]}px`;
+    el.style.cursor = 'pointer';
+
+    const marker = new maplibregl.Marker({ element: el })
+      .setLngLat(lngLat)
+      .addTo(this.map);
+
+    this.markerList.push(marker);
   }
 
   addFencePoint(lngLat) {
+    if (!this.map) throw new Error("Map not initialized.");
+
     this.fencePoints.push(lngLat);
-    this._updateFenceLayer();
+    this.addImageMarker(lngLat, 'https://cdn-icons-png.flaticon.com/512/484/484167.png');
+
+    if (this.fencePoints.length >= 3) {
+      this.drawFence();
+    }
   }
 
   clearFence() {
-    this.fencePoints = [];
-    this._updateFenceLayer();
-  }
-
-  _updateFenceLayer() {
     if (!this.map) return;
-    // Remove existing layer/source if present
-    if (this.map.getLayer(this.fenceLayerId)) {
+
+    this.fencePoints = [];
+
+    if (this.map.getSource(this.fenceSourceId)) {
       this.map.removeLayer(this.fenceLayerId);
+      this.map.removeSource(this.fenceSourceId);
     }
-    if (this.map.getSource(this.fenceLayerId)) {
-      this.map.removeSource(this.fenceLayerId);
-    }
-    if (this.fencePoints.length < 3) return;
-    this.map.addSource(this.fenceLayerId, {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [[...this.fencePoints, this.fencePoints[0]]],
-        },
-      },
-    });
-    this.map.addLayer({
-      id: this.fenceLayerId,
-      type: 'fill',
-      source: this.fenceLayerId,
-      paint: {
-        'fill-color': '#088',
-        'fill-opacity': 0.3,
-      },
-    });
+
+    this.markerList.forEach(marker => marker.remove());
+    this.markerList = [];
   }
 
-  on(event, handler) {
-    if (this.map) {
-      this.map.on(event, handler);
+  drawFence() {
+    const polygon = [[...this.fencePoints, this.fencePoints[0]]];
+
+    const geojson = {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: polygon,
+      },
+    };
+
+    if (this.map.getSource(this.fenceSourceId)) {
+      this.map.getSource(this.fenceSourceId).setData(geojson);
+    } else {
+      this.map.addSource(this.fenceSourceId, {
+        type: 'geojson',
+        data: geojson,
+      });
+
+      this.map.addLayer({
+        id: this.fenceLayerId,
+        type: 'fill',
+        source: this.fenceSourceId,
+        layout: {},
+        paint: {
+          'fill-color': '#ff0000',
+          'fill-opacity': 0.3,
+        },
+      });
     }
+  }
+
+  addGebetaLogo() {
+    if (!this.map) return;
+    const logoContainer = document.createElement('div');
+    logoContainer.className = 'maplibregl-ctrl-bottom-left';
+    logoContainer.innerHTML = `
+      <div class="maplibregl-ctrl" style="margin: 0 0 10px 10px;">
+        <a href="https://gebetamaps.com/" target="_blank">
+          <img src="https://tiles.gebeta.app/static/glogo.svg" alt="Gebeta Maps Logo" style="height: 30px; border-radius: 4px;"/>
+        </a>
+      </div>`;
+    this.map.getContainer().appendChild(logoContainer);
+  }
+
+  addCustomAttribution() {
+    if (!this.map) return;
+    this.map.addControl(new maplibregl.AttributionControl({
+      customAttribution: '<a href="https://gebetamaps.com/" target="_blank">© Gebeta Maps</a>',
+    }));
   }
 }
 
