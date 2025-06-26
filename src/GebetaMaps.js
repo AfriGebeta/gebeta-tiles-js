@@ -1,8 +1,9 @@
 import maplibregl from 'maplibre-gl';
+import ClusteringManager from './ClusteringManager.js';
 import './style.css';
 
 class GebetaMaps {
-  constructor({ apiKey }) {
+  constructor({ apiKey, clustering = {} }) {
     if (!apiKey) {
       console.error("An API key is required for Gebeta Maps.");
     }
@@ -13,6 +14,15 @@ class GebetaMaps {
     this.fenceLayerId = 'fence-fill';
     this.markerList = [];
     this.fenceMarkerList = [];
+    
+    // Clustering configuration
+    this.clustering = {
+      enabled: clustering.enabled || false,
+      ...clustering
+    };
+    
+    // Clustering manager
+    this.clusteringManager = null;
   }
 
   init(options) {
@@ -39,7 +49,20 @@ class GebetaMaps {
     this.addGebetaLogo();
     this.addCustomAttribution();
 
+    // Initialize clustering after map loads
+    if (this.clustering.enabled) {
+      this.map.on('load', () => {
+        this.initClustering();
+      });
+    }
+
     return this.map;
+  }
+
+  initClustering() {
+    if (!this.map) return;
+
+    this.clusteringManager = new ClusteringManager(this.map, this.clustering);
   }
 
   on(event, handler) {
@@ -55,6 +78,22 @@ class GebetaMaps {
   addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null) {
     if (!this.map) throw new Error("Map not initialized.");
 
+    // If clustering is enabled, add to clustering manager
+    if (this.clustering.enabled && this.clusteringManager) {
+      const markerId = `marker_${Date.now()}_${Math.random()}`;
+      const marker = {
+        id: markerId,
+        lngLat: lngLat,
+        imageUrl,
+        size,
+        onClick
+      };
+      
+      this.clusteringManager.addMarker(marker);
+      return marker;
+    }
+
+    // Traditional marker approach (non-clustered)
     const el = document.createElement('div');
     el.style.backgroundImage = `url('${imageUrl}')`;
     el.style.backgroundSize = 'contain';
@@ -87,8 +126,10 @@ class GebetaMaps {
     const markerImage = customImage || 'https://cdn-icons-png.flaticon.com/512/484/484167.png';
     const marker = this.addImageMarker(lngLat, markerImage, [30, 30], onClick);
     
-    // Store fence markers separately
-    this.fenceMarkerList.push(marker);
+    // Store fence markers separately (only for non-clustered markers)
+    if (!this.clustering.enabled) {
+      this.fenceMarkerList.push(marker);
+    }
 
     if (this.fencePoints.length >= 3) {
       this.drawFence();
@@ -105,20 +146,30 @@ class GebetaMaps {
       this.map.removeSource(this.fenceSourceId);
     }
 
-    this.fenceMarkerList.forEach(marker => marker.remove());
-    this.fenceMarkerList = [];
+    // Clear fence markers (only for non-clustered markers)
+    if (!this.clustering.enabled) {
+      this.fenceMarkerList.forEach(marker => marker.remove());
+      this.fenceMarkerList = [];
+    }
   }
 
   clearAllMarkers() {
     if (!this.map) return;
 
-    // Clear fence markers
-    this.fenceMarkerList.forEach(marker => marker.remove());
-    this.fenceMarkerList = [];
+    // Clear fence markers (only for non-clustered markers)
+    if (!this.clustering.enabled) {
+      this.fenceMarkerList.forEach(marker => marker.remove());
+      this.fenceMarkerList = [];
+    }
 
-    // Clear custom markers
+    // Clear custom markers (only for non-clustered markers)
     this.markerList.forEach(marker => marker.remove());
     this.markerList = [];
+
+    // Clear clustered markers
+    if (this.clustering.enabled && this.clusteringManager) {
+      this.clusteringManager.clearAllMarkers();
+    }
   }
 
   drawFence() {

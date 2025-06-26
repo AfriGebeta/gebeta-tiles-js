@@ -54,6 +54,10 @@
     <button onclick="addMarkerWithClick()">Add Marker with Click Handler</button>
     <button onclick="addFencePoint()">Add Fence Point (Click Map)</button>
     <button onclick="addCustomFencePoint()">Add Custom Fence Point</button>
+    <button onclick="addMultipleClusteredMarkers()">Add Clustered Markers</button>
+    <button onclick="addSpreadOutMarkers()">Add Spread Out Markers</button>
+    <button onclick="testCustomClusterImage()">Test Custom Cluster Image</button>
+    <button onclick="toggleClusterCount()">Toggle Count Badge</button>
     <button onclick="clearFence()">Clear Fence Only (C)</button>
     <button onclick="clearAllMarkers()">Clear All Markers</button>
     <div class="info">
@@ -61,8 +65,15 @@
       • Click "Add Custom Marker" to add a marker with custom image<br>
       • Click "Add Marker with Click Handler" to add an interactive marker<br>
       • Click on the map to add fence points<br>
+      • "Add Clustered Markers" adds 5 markers close together<br>
+      • "Add Spread Out Markers" adds 3 markers far apart<br>
+      • "Test Custom Cluster Image" changes cluster appearance<br>
+      • "Toggle Count Badge" shows/hides count on custom images<br>
       • "Clear Fence Only" removes only fence points and polygon<br>
-      • "Clear All Markers" removes all markers (fence + custom)
+      • "Clear All Markers" removes all markers (fence + custom)<br>
+      • Zoom out to see clustering in action<br>
+      • Click clusters to zoom in and spread them out<br>
+      • Individual markers still have click handlers
     </div>
   </div>
 
@@ -74,7 +85,25 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const MY_GEBETA_API_KEY = "YOUR_API_KEY"; // Replace this!
-        gebetaMap = new GebetaMaps({ apiKey: MY_GEBETA_API_KEY });
+        
+        // Clustering configuration
+        const clusteringConfig = {
+            enabled: true,
+            radius: 50,
+            maxZoom: 16,
+            clusterImage: null, // Custom cluster image
+            showClusterCount: false, // Don't show count with custom image by default
+            clusterOnClick: (cluster, event) => {
+                // Custom cluster click handler (optional)
+                console.log('Cluster clicked:', cluster.properties.point_count, 'markers');
+                // Default zoom behavior will be used if not overridden
+            }
+        };
+        
+        gebetaMap = new GebetaMaps({ 
+            apiKey: MY_GEBETA_API_KEY,
+            clustering: clusteringConfig
+        });
 
         map = gebetaMap.init({
             container: 'map',
@@ -176,6 +205,94 @@
         if (!gebetaMap) return;
         gebetaMap.clearAllMarkers();
         console.log('All markers cleared');
+    }
+
+    function addMultipleClusteredMarkers() {
+        if (!gebetaMap) return;
+        
+        // Add multiple markers in a small area to demonstrate clustering
+        const baseCoords = [38.7685, 9.0161];
+        const markers = [
+            { lng: baseCoords[0] + 0.001, lat: baseCoords[1] + 0.001, icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png' },
+            { lng: baseCoords[0] + 0.002, lat: baseCoords[1] + 0.001, icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png' },
+            { lng: baseCoords[0] + 0.001, lat: baseCoords[1] + 0.002, icon: 'https://cdn-icons-png.flaticon.com/512/484/484167.png' },
+            { lng: baseCoords[0] + 0.002, lat: baseCoords[1] + 0.002, icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png' },
+            { lng: baseCoords[0] + 0.003, lat: baseCoords[1] + 0.001, icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png' },
+        ];
+        
+        markers.forEach((marker, index) => {
+            gebetaMap.addImageMarker(
+                [marker.lng, marker.lat],
+                marker.icon,
+                [30, 30],
+                (lngLat, markerInstance, event) => {
+                    alert(`Clustered marker ${index + 1} clicked at: ${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}`);
+                }
+            );
+        });
+        
+        console.log('Added 5 clustered markers - zoom out to see clustering in action');
+    }
+
+    function addSpreadOutMarkers() {
+        if (!gebetaMap) return;
+        
+        // Add markers spread out to show individual markers
+        const markers = [
+            { lng: 38.7600, lat: 9.0100, icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png' },
+            { lng: 38.7800, lat: 9.0200, icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png' },
+            { lng: 38.7500, lat: 9.0300, icon: 'https://cdn-icons-png.flaticon.com/512/484/484167.png' },
+        ];
+        
+        markers.forEach((marker, index) => {
+            gebetaMap.addImageMarker(
+                [marker.lng, marker.lat],
+                marker.icon,
+                [35, 35],
+                (lngLat, markerInstance, event) => {
+                    alert(`Spread out marker ${index + 1} clicked at: ${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}`);
+                }
+            );
+        });
+        
+        console.log('Added 3 spread out markers');
+    }
+
+    function testCustomClusterImage() {
+        if (!gebetaMap || !gebetaMap.clusteringManager) return;
+        
+        // Test different cluster images
+        const clusterImages = [
+            'https://cdn-icons-png.flaticon.com/512/1828/1828640.png', // Star
+            'https://cdn-icons-png.flaticon.com/512/3081/3081559.png', // Coffee cup
+            'https://cdn-icons-png.flaticon.com/512/484/484167.png',   // Location pin
+            null // Default blue circle
+        ];
+        
+        const currentIndex = clusterImages.indexOf(gebetaMap.clusteringManager.options.clusterImage);
+        const nextIndex = (currentIndex + 1) % clusterImages.length;
+        const newImage = clusterImages[nextIndex];
+        
+        // Update the cluster image
+        gebetaMap.clusteringManager.options.clusterImage = newImage;
+        
+        // Force update to see the change
+        gebetaMap.clusteringManager.updateClustering();
+        
+        const imageName = newImage ? 'Custom Image' : 'Default Blue Circle';
+        console.log(`Changed cluster image to: ${imageName}`);
+        alert(`Cluster image changed to: ${imageName}`);
+    }
+
+    function toggleClusterCount() {
+        if (!gebetaMap || !gebetaMap.clusteringManager) return;
+        
+        gebetaMap.clusteringManager.options.showClusterCount = !gebetaMap.clusteringManager.options.showClusterCount;
+        gebetaMap.clusteringManager.updateClustering();
+        
+        const newState = gebetaMap.clusteringManager.options.showClusterCount ? 'shown' : 'hidden';
+        console.log(`Cluster count badge is now ${newState}`);
+        alert(`Cluster count badge is now ${newState}`);
     }
 </script>
 
