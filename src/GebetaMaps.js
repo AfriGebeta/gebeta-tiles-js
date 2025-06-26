@@ -12,6 +12,7 @@ class GebetaMaps {
     this.fenceSourceId = 'fence';
     this.fenceLayerId = 'fence-fill';
     this.markerList = [];
+    this.fenceMarkerList = [];
   }
 
   init(options) {
@@ -51,7 +52,7 @@ class GebetaMaps {
     this.map.addControl(new maplibregl.NavigationControl(), position);
   }
 
-  addImageMarker(lngLat, imageUrl, size = [30, 30]) {
+  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null) {
     if (!this.map) throw new Error("Map not initialized.");
 
     const el = document.createElement('div');
@@ -66,14 +67,28 @@ class GebetaMaps {
       .setLngLat(lngLat)
       .addTo(this.map);
 
+    // Add click handler if provided
+    if (onClick) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onClick(lngLat, marker, e);
+      });
+    }
+
     this.markerList.push(marker);
+    return marker;
   }
 
-  addFencePoint(lngLat) {
+  addFencePoint(lngLat, customImage = null, onClick = null) {
     if (!this.map) throw new Error("Map not initialized.");
 
     this.fencePoints.push(lngLat);
-    this.addImageMarker(lngLat, 'https://cdn-icons-png.flaticon.com/512/484/484167.png');
+    
+    const markerImage = customImage || 'https://cdn-icons-png.flaticon.com/512/484/484167.png';
+    const marker = this.addImageMarker(lngLat, markerImage, [30, 30], onClick);
+    
+    // Store fence markers separately
+    this.fenceMarkerList.push(marker);
 
     if (this.fencePoints.length >= 3) {
       this.drawFence();
@@ -90,6 +105,18 @@ class GebetaMaps {
       this.map.removeSource(this.fenceSourceId);
     }
 
+    this.fenceMarkerList.forEach(marker => marker.remove());
+    this.fenceMarkerList = [];
+  }
+
+  clearAllMarkers() {
+    if (!this.map) return;
+
+    // Clear fence markers
+    this.fenceMarkerList.forEach(marker => marker.remove());
+    this.fenceMarkerList = [];
+
+    // Clear custom markers
     this.markerList.forEach(marker => marker.remove());
     this.markerList = [];
   }
