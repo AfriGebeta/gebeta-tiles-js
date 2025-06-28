@@ -89,7 +89,7 @@ const gebetaMap = new GebetaMaps({
 - `addNavigationControls(position)` - Add zoom/pan controls
 
 #### Markers
-- `addImageMarker(lngLat, imageUrl, size, onClick)` - Add a custom marker
+- `addImageMarker(lngLat, imageUrl, size, onClick, zIndex, popupHtml)` - Add a custom marker. Optionally attach a popup with HTML content.
 - `clearAllMarkers()` - Remove all markers from the map
 
 #### Fence Drawing
@@ -247,3 +247,15 @@ try {
 } catch (err) {
   console.error('Geocoding error:', err.message);
 } 
+```
+
+##### Example: Add a marker with a popup
+```javascript
+gebetaMap.addImageMarker(
+  [38.7685, 9.0161],
+  'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+  [30, 30],
+  null, // onClick
+  10,   // zIndex
+  '<div style="font-size:14px;"><strong>Gebeta HQ</strong><br>Lat: 9.0161, Lng: 38.7685</div>' // popupHtml
+);

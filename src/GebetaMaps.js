@@ -98,7 +98,7 @@ class GebetaMaps {
     this.map.addControl(new maplibregl.NavigationControl(), position);
   }
 
-  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10) {
+  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10, popupHtml = null) {
     if (!this.map) throw new Error("Map not initialized.");
 
     // If clustering is enabled, add to clustering manager
@@ -110,7 +110,8 @@ class GebetaMaps {
         imageUrl,
         size,
         onClick,
-        zIndex
+        zIndex,
+        popupHtml
       };
       this.clusteringManager.addMarker(marker);
       return marker;
@@ -130,6 +131,13 @@ class GebetaMaps {
       .setLngLat(lngLat)
       .addTo(this.map);
 
+    let popup = null;
+    if (popupHtml) {
+      popup = new maplibregl.Popup({ offset: 18 })
+        .setHTML(popupHtml);
+      marker.setPopup(popup);
+    }
+
     // Add click handler if provided
     if (onClick) {
       el.addEventListener('click', (e) => {
@@ -139,7 +147,7 @@ class GebetaMaps {
     }
 
     this.markerList.push(marker);
-    return marker;
+    return { marker, popup };
   }
 
   addFencePoint(lngLat, customImage = null, onClick = null) {

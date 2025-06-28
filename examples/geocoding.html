@@ -151,18 +151,34 @@
           <span style='color:#888;'>Lat: ${item.lat || item.latitude}, Lng: ${item.lng || item.longitude}</span><br>
           <span style='color:#888;'>Type: ${item.type || ''}</span>`;
         resultsDiv.appendChild(div);
-        // Add marker
+        // Add marker with popup
         const lat = item.lat || item.latitude;
         const lng = item.lng || item.longitude;
+        const popupHtml = `<div style='font-size:14px; color:#333; min-width:180px;'>
+          <strong>${item.name || item.Name || 'Unknown'}</strong><br>
+          <span style='color:#666;'>${item.city || item.City || ''}, ${item.country || item.Country || ''}</span><br>
+          <span style='color:#888;'>Lat: ${lat}, Lng: ${lng}</span><br>
+          <span style='color:#888;'>Type: ${item.type || ''}</span>
+        </div>`;
+        let markerObj = null;
         if (lat && lng) {
-          const marker = gebetaMap.addImageMarker(
+          markerObj = gebetaMap.addImageMarker(
             [lng, lat],
             'https://cdn-icons-png.flaticon.com/512/484/484167.png',
             [28, 28],
             null,
-            900 // zIndex below origin/destination
+            900, // zIndex below origin/destination
+            popupHtml
           );
-          resultMarkers.push(marker);
+          resultMarkers.push(markerObj);
+        }
+        // Add click to result item to zoom and open popup
+        if (markerObj && markerObj.marker) {
+          div.style.cursor = 'pointer';
+          div.addEventListener('click', () => {
+            map.flyTo({ center: [lng, lat], zoom: 16 });
+            if (markerObj.popup) markerObj.popup.addTo(map);
+          });
         }
       });
       // Zoom to first result
