@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import ClusteringManager from './ClusteringManager.js';
 import FenceManager from './FenceManager.js';
 import DirectionsManager from './DirectionsManager.js';
+import GeocodingManager from './GeocodingManager.js';
 import './style.css';
 
 class GebetaMaps {
@@ -27,6 +28,8 @@ class GebetaMaps {
 
     // Directions manager
     this.directionsManager = null;
+
+    this.geocodingManager = new GeocodingManager(apiKey);
   }
 
   init(options) {
@@ -255,6 +258,16 @@ class GebetaMaps {
     this.map.addControl(new maplibregl.AttributionControl({
       customAttribution: '<a href="https://gebetamaps.com/" target="_blank">© Gebeta Maps</a>',
     }));
+  }
+
+  async geocode(name) {
+    if (!this.geocodingManager) throw new Error('Geocoding manager not initialized');
+    return await this.geocodingManager.geocode(name);
+  }
+
+  async reverseGeocode(lat, lon) {
+    if (!this.geocodingManager) throw new Error('Geocoding manager not initialized');
+    return await this.geocodingManager.reverseGeocode(lat, lon);
   }
 }
 

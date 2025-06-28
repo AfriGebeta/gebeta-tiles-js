@@ -191,4 +191,59 @@ The returned `routeData` object contains:
 gebetaMap.displayRoute(routeData, { showInstructions: true });
 ```
 
-Clicking an instruction marker will zoom to that step and show the instruction in a popup. 
+Clicking an instruction marker will zoom to that step and show the instruction in a popup.
+
+## Geocoding API Usage
+
+The library provides built-in support for both forward and reverse geocoding.
+
+### Forward Geocoding
+Find coordinates by searching for a place name.
+
+```javascript
+// Forward geocoding
+const results = await gebetaMap.geocode('bole');
+console.log(results);
+// [
+//   { name: 'bole arabsa', lat: 8.978027, lng: 38.884797, city: 'Addis Ababa', country: 'Ethiopia', type: 'neighborhood' },
+//   ...
+// ]
+```
+- **Method:** `gebetaMap.geocode(name)`
+- **Parameters:**
+  - `name` (string): The place name to search for (required)
+- **Returns:** Array of matching locations with properties like `name`, `lat`, `lng`, `city`, `country`, `type`.
+
+### Reverse Geocoding
+Find place details by searching with coordinates.
+
+```javascript
+// Reverse geocoding
+const results = await gebetaMap.reverseGeocode(8.989022, 38.79036);
+console.log(results);
+// [
+//   { name: 'haji suktala building materials', latitude: 9.05559, longitude: 38.705503, city: 'addis ababa', country: 'Ethiopia', type: 'Building', ... },
+//   ...
+// ]
+```
+- **Method:** `gebetaMap.reverseGeocode(lat, lon)`
+- **Parameters:**
+  - `lat` (number): Latitude (required)
+  - `lon` (number): Longitude (required)
+- **Returns:** Array of matching places with properties like `name`, `latitude`, `longitude`, `city`, `country`, `type`, etc.
+
+### Error Handling
+If the API returns an error or no results, an exception is thrown. Use try/catch to handle errors gracefully.
+
+### Example (with error handling)
+```javascript
+try {
+  const results = await gebetaMap.geocode('bole');
+  if (results.length === 0) {
+    console.log('No results found.');
+  } else {
+    console.log('First result:', results[0]);
+  }
+} catch (err) {
+  console.error('Geocoding error:', err.message);
+} 

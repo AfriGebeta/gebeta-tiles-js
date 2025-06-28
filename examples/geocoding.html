@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Geocoding Example</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      max-width: 350px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .nav {
+      margin-bottom: 10px;
+    }
+    .nav a {
+      margin-right: 10px;
+      color: #007cbf;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .nav a.active {
+      text-decoration: underline;
+    }
+    .result-list {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #333;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .result-item {
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    .input-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .input-column input {
+      flex: 1;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .input-column button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      background: #007cbf;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .input-column button:hover {
+      background: #005a8b;
+    }
+    .section-title {
+      margin: 10px 0 5px 0;
+      font-size: 15px;
+      font-weight: bold;
+      color: #007cbf;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  <div class="control-panel">
+    <div class="nav">
+      <a href="index.html">Home</a>
+      <a href="core.html">Fence Drawing</a>
+      <a href="markers.html">Markers</a>
+      <a href="clustering.html">Clustering</a>
+      <a href="directions.html">Directions</a>
+      <a href="geocoding.html" class="active">Geocoding</a>
+    </div>
+    <div class="section-title">Forward Geocoding</div>
+    <div class="input-column">
+      <input type="text" id="placeInput" placeholder="Enter place name (e.g. bole)" />
+      <button onclick="doGeocode()">Search</button>
+    </div>
+    <div class="section-title">Reverse Geocoding</div>
+    <div class="input-column">
+      <input type="number" id="latInput" placeholder="Latitude" step="any" />
+      <input type="number" id="lonInput" placeholder="Longitude" step="any" />
+      <button onclick="doReverseGeocode()">Find</button>
+    </div>
+    <div class="section-title">Results</div>
+    <div id="results" class="result-list"></div>
+    <div class="info" style="margin-top: 10px; font-size: 12px; color: #333;">
+      <strong>Instructions:</strong><br>
+      • Use the search box to find places by name<br>
+      • Enter coordinates for reverse geocoding<br>
+      • Results are shown below and on the map
+    </div>
+  </div>
+  <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script>
+  <script src="config.js"></script>
+  <script>
+    let gebetaMap;
+    let map;
+    let resultMarkers = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const config = loadConfig();
+      const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+      gebetaMap = new GebetaMaps({ apiKey: MY_GEBETA_API_KEY });
+      map = gebetaMap.init({
+        container: 'map',
+        center: [38.7685, 9.0161],
+        zoom: 12,
+      });
+      map.on('load', () => {
+        gebetaMap.addNavigationControls();
+      });
+    });
+
+    function clearResultMarkers() {
+      resultMarkers.forEach(m => m.remove());
+      resultMarkers = [];
+    }
+
+    function showResults(results) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      clearResultMarkers();
+      if (!results || results.length === 0) {
+        resultsDiv.innerHTML = '<div style="color:#888;">No results found.</div>';
+        return;
+      }
+      results.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `<strong>${item.name || item.Name || 'Unknown'}</strong><br>
+          <span style='color:#666;'>${item.city || item.City || ''}, ${item.country || item.Country || ''}</span><br>
+          <span style='color:#888;'>Lat: ${item.lat || item.latitude}, Lng: ${item.lng || item.longitude}</span><br>
+          <span style='color:#888;'>Type: ${item.type || ''}</span>`;
+        resultsDiv.appendChild(div);
+        // Add marker
+        const lat = item.lat || item.latitude;
+        const lng = item.lng || item.longitude;
+        if (lat && lng) {
+          const marker = gebetaMap.addImageMarker(
+            [lng, lat],
+            'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+            [28, 28],
+            null,
+            900 // zIndex below origin/destination
+          );
+          resultMarkers.push(marker);
+        }
+      });
+      // Zoom to first result
+      if (results[0] && (results[0].lat || results[0].latitude) && (results[0].lng || results[0].longitude)) {
+        const lat = results[0].lat || results[0].latitude;
+        const lng = results[0].lng || results[0].longitude;
+        map.flyTo({ center: [lng, lat], zoom: 15 });
+      }
+    }
+
+    async function doGeocode() {
+      const place = document.getElementById('placeInput').value.trim();
+      if (!place) {
+        alert('Please enter a place name.');
+        return;
+      }
+      try {
+        const results = await gebetaMap.geocode(place);
+        showResults(results);
+      } catch (err) {
+        showResults([]);
+        alert('Geocoding error: ' + err.message);
+      }
+    }
+
+    async function doReverseGeocode() {
+      const lat = parseFloat(document.getElementById('latInput').value);
+      const lon = parseFloat(document.getElementById('lonInput').value);
+      if (isNaN(lat) || isNaN(lon)) {
+        alert('Please enter valid latitude and longitude.');
+        return;
+      }
+      try {
+        const results = await gebetaMap.reverseGeocode(lat, lon);
+        showResults(results);
+      } catch (err) {
+        showResults([]);
+        alert('Reverse geocoding error: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html> 
