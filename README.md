@@ -141,4 +141,54 @@ This library is provided by Gebeta Maps. Please refer to the Gebeta Maps terms o
 
 ## Support
 
-For support and documentation, visit [gebetamaps.com](https://gebetamaps.com) 
+For support and documentation, visit [gebetamaps.com](https://gebetamaps.com)
+
+## Directions API Usage
+
+The library provides built-in support for route planning and directions, including waypoints and step instructions.
+
+### Getting Directions
+
+```javascript
+// Basic usage
+const routeData = await gebetaMap.getDirections(
+  { lat: 9.0161, lng: 38.7685 }, // origin
+  { lat: 9.0450, lng: 38.7450 }, // destination
+  {
+    waypoints: [
+      { lat: 8.987192, lng: 38.82223 },
+      // ...more waypoints
+    ],
+    avgSpeedKmh: 40 // (optional) average speed for duration estimation
+  }
+);
+
+// Display the route on the map
+gebetaMap.displayRoute(routeData, {
+  showMarkers: true, // Show origin/destination/waypoint markers
+  showInstructions: true, // Show step instruction markers (default: false)
+  originIcon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
+  destinationIcon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
+  waypointIcon: 'https://cdn-icons-png.flaticon.com/512/484/484167.png'
+});
+```
+
+#### Options
+- `waypoints`: Array of `{ lat, lng }` objects for intermediate stops.
+- `avgSpeedKmh`: (optional) Average speed in km/h for duration estimation (default: 30).
+- `showInstructions`: (displayRoute option) Show step-by-step instruction markers on the map (default: false).
+- `originIcon`, `destinationIcon`, `waypointIcon`: (displayRoute options) Custom marker icons.
+
+#### Route Data
+The returned `routeData` object contains:
+- `geometry`: GeoJSON LineString for the route
+- `origin`, `destination`, `waypoints`: Coordinates
+- `distance`, `duration`: Human-readable distance and estimated duration
+- `instructions`: Array of step instructions (if available)
+
+#### Example: Show Instructions
+```javascript
+gebetaMap.displayRoute(routeData, { showInstructions: true });
+```
+
+Clicking an instruction marker will zoom to that step and show the instruction in a popup. 

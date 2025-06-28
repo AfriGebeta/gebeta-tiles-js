@@ -64,13 +64,16 @@
   </div>
 
   <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script>
+  <!-- this is just a utility to load the env for all examples -->
+  <script src="config.js"></script>
 
 <script>
     let gebetaMap;
     let map;
 
     document.addEventListener('DOMContentLoaded', () => {
-        const MY_GEBETA_API_KEY = "YOUR_API_KEY"; // Replace this!
+        const config = loadConfig();
+        const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
         
         gebetaMap = new GebetaMaps({ 
             apiKey: MY_GEBETA_API_KEY

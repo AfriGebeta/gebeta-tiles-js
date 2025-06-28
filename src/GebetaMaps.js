@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import ClusteringManager from './ClusteringManager.js';
 import FenceManager from './FenceManager.js';
+import DirectionsManager from './DirectionsManager.js';
 import './style.css';
 
 class GebetaMaps {
@@ -23,6 +24,9 @@ class GebetaMaps {
 
     // Fence manager
     this.fenceManager = null;
+
+    // Directions manager
+    this.directionsManager = null;
   }
 
   init(options) {
@@ -58,6 +62,9 @@ class GebetaMaps {
       
       // Initialize fence manager
       this.initFenceManager();
+
+      // Initialize directions manager
+      this.initDirectionsManager();
     });
 
     return this.map;
@@ -73,6 +80,11 @@ class GebetaMaps {
     this.fenceManager = new FenceManager(this.map, this.clustering.enabled);
   }
 
+  initDirectionsManager() {
+    if (!this.map) return;
+    this.directionsManager = new DirectionsManager(this.map, this.apiKey);
+  }
+
   on(event, handler) {
     if (!this.map) throw new Error("Map not initialized. Call init() first.");
     this.map.on(event, handler);
@@ -83,7 +95,7 @@ class GebetaMaps {
     this.map.addControl(new maplibregl.NavigationControl(), position);
   }
 
-  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null) {
+  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10) {
     if (!this.map) throw new Error("Map not initialized.");
 
     // If clustering is enabled, add to clustering manager
@@ -94,9 +106,9 @@ class GebetaMaps {
         lngLat: lngLat,
         imageUrl,
         size,
-        onClick
+        onClick,
+        zIndex
       };
-      
       this.clusteringManager.addMarker(marker);
       return marker;
     }
@@ -109,6 +121,7 @@ class GebetaMaps {
     el.style.width = `${size[0]}px`;
     el.style.height = `${size[1]}px`;
     el.style.cursor = 'pointer';
+    el.style.zIndex = zIndex;
 
     const marker = new maplibregl.Marker({ element: el })
       .setLngLat(lngLat)
@@ -165,6 +178,42 @@ class GebetaMaps {
     return this.fenceManager.getFences();
   }
 
+  // Directions API methods
+  async getDirections(origin, destination, options = {}) {
+    if (!this.directionsManager) {
+      throw new Error("Directions manager not initialized. Call init() first.");
+    }
+    return await this.directionsManager.getDirections(origin, destination, options);
+  }
+
+  displayRoute(routeData, options = {}) {
+    if (!this.directionsManager) {
+      console.warn("Directions manager not initialized. Route display may not work properly.");
+      return;
+    }
+    this.directionsManager.displayRoute(routeData, options);
+  }
+
+  clearRoute() {
+    if (!this.directionsManager) return;
+    this.directionsManager.clearRoute();
+  }
+
+  getCurrentRoute() {
+    if (!this.directionsManager) return null;
+    return this.directionsManager.getCurrentRoute();
+  }
+
+  getRouteSummary() {
+    if (!this.directionsManager) return null;
+    return this.directionsManager.getRouteSummary();
+  }
+
+  updateRouteStyle(style = {}) {
+    if (!this.directionsManager) return;
+    this.directionsManager.updateRouteStyle(style);
+  }
+
   clearAllMarkers() {
     if (!this.map) return;
 
@@ -180,6 +229,11 @@ class GebetaMaps {
     // Clear fences
     if (this.fenceManager) {
       this.fenceManager.clearAllFences();
+    }
+
+    // Clear route
+    if (this.directionsManager) {
+      this.directionsManager.clearRoute();
     }
   }
 

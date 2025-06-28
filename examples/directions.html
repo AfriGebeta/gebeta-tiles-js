@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Directions</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      max-width: 350px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .control-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .control-panel h4 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #333;
+    }
+    .control-panel input, .control-panel select {
+      width: 100%;
+      margin: 5px 0;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #333;
+      background: white;
+    }
+    .control-panel button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: pointer;
+      font-size: 14px;
+      color: #333;
+      transition: all 0.2s ease;
+    }
+    .control-panel button:hover {
+      background: #e9ecef;
+      color: #333;
+    }
+    .control-panel button:disabled {
+      background: #f1f3f4;
+      color: #999;
+      cursor: not-allowed;
+    }
+    .control-panel button.primary {
+      background: #007cbf;
+      color: white;
+      border-color: #007cbf;
+    }
+    .control-panel button.primary:hover {
+      background: #005a8b;
+      color: white;
+    }
+    .control-panel button.primary:disabled {
+      background: #6c757d;
+      color: #fff;
+      border-color: #6c757d;
+    }
+    .control-panel .info {
+      font-size: 12px;
+      color: #333;
+      margin-top: 10px;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+    }
+    .route-info {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e8f4fd;
+      border-radius: 4px;
+      border-left: 4px solid #007cbf;
+    }
+    .route-info h4 {
+      margin: 0 0 5px 0;
+      font-size: 14px;
+      color: #333;
+    }
+    .route-info p {
+      margin: 2px 0;
+      font-size: 12px;
+      color: #333;
+    }
+    .waypoint-controls {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+      
+    }
+    .waypoint-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+      padding: 5px;
+      background: white;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+    }
+    .waypoint-item input {
+      flex: 1;
+      margin: 0 5px;
+      border: 1px solid #ddd;
+      padding: 4px;
+      font-size: 11px;
+      color: #333;
+      background: white;
+    }
+    .waypoint-item button {
+      width: auto;
+      margin: 0;
+      padding: 4px 8px;
+      font-size: 12px;
+      background: #dc3545;
+      color: white;
+      border-color: #dc3545;
+    }
+    .waypoint-item button:hover {
+      background: #c82333;
+      color: white;
+    }
+    .waypoint-item span {
+      font-size: 12px;
+      color: #666;
+      min-width: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  
+  <div class="control-panel">
+    <h3>Directions API</h3>
+    
+    <div style="margin-bottom: 15px;">
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <button id="addOriginBtn" class="primary" onclick="setMode('origin')">📍 Set Origin</button>
+        <button id="addDestinationBtn" onclick="setMode('destination')">🎯 Set Destination</button>
+      </div>
+      <div style="font-size: 12px; color: #666; text-align: center;">
+        <span id="modeIndicator">Click "Set Origin" to start</span>
+      </div>
+    </div>
+    
+    <div id="coordinatesDisplay" style="display: none;">
+      <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+        <div style="margin-bottom: 5px; color: #666">
+          <strong>Origin:</strong> <span id="originCoords">Not set</span>
+        </div>
+        <div style="margin-bottom: 5px; color: #666">
+          <strong>Destination:</strong> <span id="destinationCoords">Not set</span>
+        </div>
+      </div>
+    </div>
+    
+    <button class="primary" onclick="getDirections()" id="getDirectionsBtn" disabled>Get Directions</button>
+    <button onclick="clearRoute()">Clear Route</button>
+    <button onclick="clearMarkers()">Clear Markers</button>
+    <div style="margin: 10px 0;
+                color: #666;
+                font-size: 13px;
+                display: flex;
+                flex-direction: row;
+                gap: 5px;
+                flex-wrap: nowrap;
+                justify-content: space-evenly;
+                /* align-content: center; */
+                align-items: center;">
+        <label for="showInstructionsCheckbox" style="vertical-align: middle; cursor: pointer;">Show Step Instructions on Map</label>
+        <input type="checkbox" id="showInstructionsCheckbox" style="    vertical-align: middle;
+                    /* margin-right: 5px; */
+                    width: 15px;
+                    height: 15px;">
+    </div>
+    
+    <div class="waypoint-controls">
+      <h4>Waypoints</h4>
+      <div id="waypointsList"></div>
+      <button onclick="setWaypointMode()" style="font-size: 12px; padding: 4px 8px;">📍 Add Waypoint (Click Map)</button>
+    </div>
+    
+    <div style="margin-top: 10px;">
+      <button onclick="testPresetRoutes()">Test Preset Routes</button>
+      <button onclick="toggleRouteStyle()">Toggle Route Style</button>
+    </div>
+    
+    <div id="routeInfo" class="route-info" style="display: none;">
+      <h4>Route Information</h4>
+      <div id="routeDetails"></div>
+    </div>
+    
+    <div class="info">
+      <strong>Instructions:</strong><br>
+      • Click "Set Origin" then click on map<br>
+      • Click "Set Destination" then click on map<br>
+      • Use "Get Directions" to find route<br>
+      • Add waypoints for multi-stop routes<br>
+      • Test preset routes for quick examples
+    </div>
+  </div>
+
+  <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script>
+  <!-- this is just a utility to load the env for all examples -->
+  <script src="config.js"></script>
+
+<script>
+    let gebetaMap;
+    let map;
+    let waypoints = [];
+    let waypointMarkers = [];
+    let currentMode = 'origin'; // 'origin', 'destination', or 'waypoint'
+    let originMarker = null;
+    let destinationMarker = null;
+    let originCoords = null;
+    let destinationCoords = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const config = loadConfig();
+        const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+        
+        gebetaMap = new GebetaMaps({ 
+            apiKey: MY_GEBETA_API_KEY
+        });
+
+        map = gebetaMap.init({
+            container: 'map',
+            center: [38.7685, 9.0161],
+            zoom: 12,
+        });
+
+        map.on('load', () => {
+            gebetaMap.addNavigationControls();
+            
+            // // Initialize the mode indicator
+            // setMode(null);
+        });
+
+        // Add click handler for adding markers
+        map.on('click', (e) => {
+            const { lng, lat } = e.lngLat;
+            
+            if (currentMode === 'origin') {
+                setOriginMarker(lat, lng);
+            } else if (currentMode === 'destination') {
+                setDestinationMarker(lat, lng);
+            } else if (currentMode === 'waypoint') {
+                addWaypointMarker(lat, lng);
+            }
+        });
+
+        map.on('error', (e) => {
+            const mapContainer = document.getElementById('map');
+            if (mapContainer) {
+                mapContainer.innerHTML = `<div style="padding: 20px; text-align: center;">
+                    <h2>Could not load map style</h2>
+                    <p>Please ensure the style server at <code>https://tiles.gebeta.app</code> is reachable.</p>
+                </div>`;
+            }
+        });
+    });
+
+    function setMode(mode) {
+        currentMode = mode;
+        
+        // Update button styles
+        document.getElementById('addOriginBtn').classList.toggle('primary', mode === 'origin');
+        document.getElementById('addDestinationBtn').classList.toggle('primary', mode === 'destination');
+        
+        // Update mode indicator
+        const modeIndicator = document.getElementById('modeIndicator');
+        if (mode === 'origin') {
+            modeIndicator.textContent = 'Click on map to set origin point';
+        } else if (mode === 'destination') {
+            modeIndicator.textContent = 'Click on map to set destination point';
+        } else if (mode === 'waypoint') {
+            modeIndicator.textContent = 'Click on map to add waypoint';
+        } else {
+            // mode is null - show appropriate message
+            if (originCoords && destinationCoords) {
+                modeIndicator.textContent = 'Both points set - ready for directions';
+            } else if (originCoords) {
+                modeIndicator.textContent = 'Origin set - click "Set Destination" to continue';
+            } else {
+                modeIndicator.textContent = 'Click "Set Origin" to start';
+            }
+        }
+        
+        // Show coordinates display if we have any coordinates
+        if (originCoords || destinationCoords) {
+            document.getElementById('coordinatesDisplay').style.display = 'block';
+        }
+        
+        // Update get directions button state
+        updateGetDirectionsButton();
+    }
+
+    function setWaypointMode() {
+        setMode('waypoint');
+    }
+
+    function addWaypointMarker(lat, lng) {
+        const waypointIndex = waypoints.length;
+        
+        // Create waypoint marker
+        const waypointMarker = gebetaMap.addImageMarker(
+            [lng, lat],
+            'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+            [25, 25],
+            (coords, marker, event) => {
+                console.log(`Waypoint ${waypointIndex + 1} clicked:`, coords);
+            }
+        );
+        
+        // Add to waypoints array
+        waypoints.push({ lat, lng });
+        waypointMarkers.push(waypointMarker);
+        
+        // Update waypoints list
+        updateWaypointsList();
+        
+        // Clear waypoint mode
+        currentMode = null;
+        document.getElementById('modeIndicator').textContent = 'Waypoint added - click "Add Waypoint" for more';
+        
+        console.log(`Added waypoint ${waypointIndex + 1} at: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    }
+
+    function setOriginMarker(lat, lng) {
+        // Remove existing origin marker
+        if (originMarker) {
+            originMarker.remove();
+        }
+        
+        // Create new origin marker
+        originMarker = gebetaMap.addImageMarker(
+            [lng, lat],
+            'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
+            [30, 30],
+            (coords, marker, event) => {
+                console.log('Origin marker clicked:', coords);
+            },
+            1000 // zIndex for origin
+        );
+        
+        originCoords = { lat, lng };
+        updateCoordinatesDisplay();
+        updateGetDirectionsButton();
+        
+        // Switch to destination mode
+        setMode('destination');
+    }
+
+    function setDestinationMarker(lat, lng) {
+        // Remove existing destination marker
+        if (destinationMarker) {
+            destinationMarker.remove();
+        }
+        
+        // Create new destination marker
+        destinationMarker = gebetaMap.addImageMarker(
+            [lng, lat],
+            'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
+            [30, 30],
+            (coords, marker, event) => {
+                console.log('Destination marker clicked:', coords);
+            },
+            1000 // zIndex for destination
+        );
+        
+        destinationCoords = { lat, lng };
+        updateCoordinatesDisplay();
+        updateGetDirectionsButton();
+        
+        // Clear mode
+        currentMode = null;
+        document.getElementById('modeIndicator').textContent = 'Both points set - ready for directions';
+        document.getElementById('addOriginBtn').classList.remove('primary');
+        document.getElementById('addDestinationBtn').classList.remove('primary');
+    }
+
+    function updateCoordinatesDisplay() {
+        const originCoordsSpan = document.getElementById('originCoords');
+        const destinationCoordsSpan = document.getElementById('destinationCoords');
+        
+        if (originCoords) {
+            originCoordsSpan.textContent = `${originCoords.lat.toFixed(6)}, ${originCoords.lng.toFixed(6)}`;
+        } else {
+            originCoordsSpan.textContent = 'Not set';
+        }
+        
+        if (destinationCoords) {
+            destinationCoordsSpan.textContent = `${destinationCoords.lat.toFixed(6)}, ${destinationCoords.lng.toFixed(6)}`;
+        } else {
+            destinationCoordsSpan.textContent = 'Not set';
+        }
+        
+        // Show coordinates display if we have any coordinates
+        if (originCoords || destinationCoords) {
+            document.getElementById('coordinatesDisplay').style.display = 'block';
+        }
+    }
+
+    function updateGetDirectionsButton() {
+        const getDirectionsBtn = document.getElementById('getDirectionsBtn');
+        const canGetDirections = originCoords && destinationCoords;
+        
+        getDirectionsBtn.disabled = !canGetDirections;
+        if (canGetDirections) {
+            getDirectionsBtn.textContent = 'Get Directions';
+        } else {
+            getDirectionsBtn.textContent = 'Set both points first';
+        }
+    }
+
+    function clearMarkers() {
+        // Clear origin marker
+        if (originMarker) {
+            originMarker.remove();
+            originMarker = null;
+        }
+        
+        // Clear destination marker
+        if (destinationMarker) {
+            destinationMarker.remove();
+            destinationMarker = null;
+        }
+        
+        // Clear waypoint markers
+        waypointMarkers.forEach(marker => marker.remove());
+        waypointMarkers = [];
+        
+        // Clear coordinates
+        originCoords = null;
+        destinationCoords = null;
+        waypoints = [];
+        
+        // Update UI
+        updateCoordinatesDisplay();
+        updateWaypointsList();
+        updateGetDirectionsButton();
+        document.getElementById('coordinatesDisplay').style.display = 'none';
+        document.getElementById('modeIndicator').textContent = 'Click "Set Origin" to start';
+        
+        // Clear route
+        clearRoute();
+    }
+
+    async function getDirections() {
+        if (!gebetaMap || !originCoords || !destinationCoords) {
+            alert('Please set both origin and destination points first.');
+            return;
+        }
+        
+        try {
+            // Prepare options
+            const options = {
+                waypoints: waypoints
+            };
+            
+            console.log('Getting directions...', { origin: originCoords, destination: destinationCoords, options });
+            
+            // Get directions
+            const routeData = await gebetaMap.getDirections(originCoords, destinationCoords, options);
+            
+            console.log('Route data received:', routeData);
+            
+            // Show instructions toggle
+            const showInstructions = document.getElementById('showInstructionsCheckbox').checked;
+            
+            // Display route
+            gebetaMap.displayRoute(routeData, {
+                showMarkers: false, // We already have our own markers
+                originIcon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
+                destinationIcon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
+                waypointIcon: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+                showInstructions: showInstructions
+            });
+            
+            // Show route information
+            displayRouteInfo(routeData);
+            
+        } catch (error) {
+            console.error('Error getting directions:', error);
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    function displayRouteInfo(routeData) {
+        const routeInfo = document.getElementById('routeInfo');
+        const routeDetails = document.getElementById('routeDetails');
+        
+        if (!routeData) {
+            routeInfo.style.display = 'none';
+            return;
+        }
+        
+        let details = '';
+        
+        if (routeData.totalDistance) {
+            details += `<p><strong>Total Distance:</strong> ${(routeData.totalDistance / 1000).toFixed(2)} km</p>`;
+        }
+        
+        if (routeData.distance) {
+            details += `<p><strong>Distance:</strong> ${routeData.distance}</p>`;
+        }
+        
+        if (routeData.duration) {
+            details += `<p><strong>Estimated Duration:</strong> ${routeData.duration}</p>`;
+        }
+        
+        if (routeData.timetaken) {
+            details += `<p><strong>API Response Time:</strong> ${routeData.timetaken.toFixed(2)} ms</p>`;
+        }
+        
+        if (routeData.origin) {
+            details += `<p><strong>Origin:</strong> ${routeData.origin.lat.toFixed(6)}, ${routeData.origin.lng.toFixed(6)}</p>`;
+        }
+        
+        if (routeData.destination) {
+            details += `<p><strong>Destination:</strong> ${routeData.destination.lat.toFixed(6)}, ${routeData.destination.lng.toFixed(6)}</p>`;
+        }
+        
+        if (routeData.waypoints && routeData.waypoints.length > 0) {
+            details += `<p><strong>Waypoints:</strong> ${routeData.waypoints.length}</p>`;
+        }
+        
+        routeDetails.innerHTML = details;
+        routeInfo.style.display = 'block';
+    }
+
+    function clearRoute() {
+        if (!gebetaMap) return;
+        gebetaMap.clearRoute();
+        document.getElementById('routeInfo').style.display = 'none';
+    }
+
+    function removeWaypoint(index) {
+        // Remove marker from map
+        if (waypointMarkers[index]) {
+            waypointMarkers[index].remove();
+        }
+        
+        // Remove from arrays
+        waypoints.splice(index, 1);
+        waypointMarkers.splice(index, 1);
+        
+        // Update waypoints list
+        updateWaypointsList();
+        
+        console.log(`Removed waypoint ${index + 1}`);
+    }
+
+    function updateWaypointsList() {
+        const waypointsList = document.getElementById('waypointsList');
+        waypointsList.innerHTML = '';
+        
+        waypoints.forEach((waypoint, index) => {
+            const waypointItem = document.createElement('div');
+            waypointItem.className = 'waypoint-item';
+            waypointItem.innerHTML = `
+                <span>${index + 1}.</span>
+                <input type="text" value="${waypoint.lat.toFixed(6)}, ${waypoint.lng.toFixed(6)}" readonly>
+                <button onclick="removeWaypoint(${index})">×</button>
+            `;
+            waypointsList.appendChild(waypointItem);
+        });
+    }
+
+    function testPresetRoutes() {
+        const presets = [
+            {
+                name: 'Addis Ababa - Short Route',
+                origin: { lat: 9.0161, lng: 38.7685 },
+                destination: { lat: 9.03045, lng: 38.76530 }
+            },
+            {
+                name: 'Addis Ababa - Medium Route',
+                origin: { lat: 9.0161, lng: 38.7685 },
+                destination: { lat: 9.0450, lng: 38.7450 }
+            },
+            {
+                name: 'Addis Ababa - Long Route',
+                origin: { lat: 9.0161, lng: 38.7685 },
+                destination: { lat: 9.0600, lng: 38.7200 }
+            }
+        ];
+        
+        const preset = presets[Math.floor(Math.random() * presets.length)];
+        
+        // Clear existing markers
+        clearMarkers();
+        
+        // Set new coordinates
+        originCoords = preset.origin;
+        destinationCoords = preset.destination;
+        
+        // Add markers
+        setOriginMarker(preset.origin.lat, preset.origin.lng);
+        setDestinationMarker(preset.destination.lat, preset.destination.lng);
+        
+        console.log(`Testing preset route: ${preset.name}`);
+        getDirections();
+    }
+
+    function toggleRouteStyle() {
+        if (!gebetaMap) return;
+        
+        const styles = [
+            { color: '#007cbf', width: 4, opacity: 0.8 },
+            { color: '#28a745', width: 6, opacity: 0.9 },
+            { color: '#dc3545', width: 5, opacity: 0.7 },
+            { color: '#ffc107', width: 3, opacity: 0.8 }
+        ];
+        
+        const currentStyle = gebetaMap.getCurrentRoute() ? 
+            gebetaMap.getCurrentRoute().style || 0 : 0;
+        const nextStyle = (currentStyle + 1) % styles.length;
+        
+        gebetaMap.updateRouteStyle(styles[nextStyle]);
+        
+        const colorNames = ['Blue', 'Green', 'Red', 'Yellow'];
+        console.log(`Route style changed to: ${colorNames[nextStyle]}`);
+        alert(`Route style changed to: ${colorNames[nextStyle]}`);
+    }
+
+    function parseCoordinates(coordString) {
+        const parts = coordString.split(',').map(s => s.trim());
+        if (parts.length !== 2) {
+            throw new Error('Invalid coordinate format. Use "lat, lng"');
+        }
+        
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        
+        if (isNaN(lat) || isNaN(lng)) {
+            throw new Error('Invalid coordinates');
+        }
+        
+        return { lat, lng };
+    }
+</script>
+
+</body>
+</html> 
