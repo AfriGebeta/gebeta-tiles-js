@@ -184,6 +184,11 @@ class GebetaMaps {
     return this.fenceManager.getFencePoints();
   }
 
+  getFencePointsWithClosure() {
+    if (!this.fenceManager) return [];
+    return this.fenceManager.getFencePointsWithClosure();
+  }
+
   getFences() {
     if (!this.fenceManager) return [];
     return this.fenceManager.getFences();

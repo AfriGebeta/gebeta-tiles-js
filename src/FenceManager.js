@@ -29,8 +29,12 @@ class FenceManager {
       this.startNewFence();
     }
 
-    // If clicking on an existing point, close the fence and do not add a new point
-    if (this.isDrawingFence && this.isClickOnExistingFencePoint(lngLat)) {
+    // If clicking on the first point, close the fence
+    if (this.isDrawingFence && this.isClickOnFirstFencePoint(lngLat)) {
+      // Add the first point as a new point to close the fence
+      // Use the exact same coordinate format as the first point
+      this.fencePoints.push([this.fencePoints[0][0], this.fencePoints[0][1]]);
+      
       this.closeFence();
       return;
     }
@@ -122,10 +126,26 @@ class FenceManager {
   closeFence() {
     if (this.fencePoints.length < 3) return;
 
+    // Check if first and last points are the same
+    const firstPoint = this.fencePoints[0];
+    const lastPoint = this.fencePoints[this.fencePoints.length - 1];
+    
+    console.debug('CloseFence - First point:', firstPoint, 'Last point:', lastPoint);
+    console.debug('CloseFence - First point lng:', firstPoint[0], 'lat:', firstPoint[1]);
+    console.debug('CloseFence - Last point lng:', lastPoint[0], 'lat:', lastPoint[1]);
+    
+    if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
+      console.debug('First and last points do not match. Setting last point to match first point.');
+      this.fencePoints[this.fencePoints.length - 1] = [firstPoint[0], firstPoint[1]];
+      console.debug('CloseFence - After setting, last point:', this.fencePoints[this.fencePoints.length - 1]);
+    } else {
+      console.debug('First and last points already match.');
+    }
+
     this.drawFence();
     this.stopFenceDrawing();
     
-    console.log('Fence closed with', this.fencePoints.length, 'points');
+    console.debug('Fence closed with', this.fencePoints.length, 'points');
   }
 
   startNewFence() {
@@ -149,7 +169,7 @@ class FenceManager {
       // Redraw all fences to ensure they're all visible
       this.drawAllFences();
       
-      console.log(`Fence ${completedFence.id} stored. Total fences: ${this.fences.length}`);
+      console.debug(`Fence ${completedFence.id} stored. Total fences: ${this.fences.length}`);
     }
   }
 
@@ -196,13 +216,19 @@ class FenceManager {
     this.fences = [];
     this.currentFenceId = 0;
     
-    console.log('All fences cleared');
+    console.debug('All fences cleared');
   }
 
   drawFence() {
     if (this.fencePoints.length < 3) return;
-    // Always close the polygon by connecting last point to first
-    const polygon = [[...this.fencePoints, this.fencePoints[0]]];
+    
+    // Check if the last point is already the same as the first point
+    const firstPoint = this.fencePoints[0];
+    const lastPoint = this.fencePoints[this.fencePoints.length - 1];
+    const isAlreadyClosed = firstPoint[0] === lastPoint[0] && firstPoint[1] === lastPoint[1];
+    
+    // Create polygon - only add first point again if not already closed
+    const polygon = isAlreadyClosed ? [this.fencePoints] : [[...this.fencePoints, this.fencePoints[0]]];
 
     const geojson = {
       type: 'Feature',
@@ -248,7 +274,13 @@ class FenceManager {
   drawStoredFence(fence) {
     if (fence.points.length < 3) return;
     
-    const polygon = [[...fence.points, fence.points[0]]];
+    // Check if the last point is already the same as the first point
+    const firstPoint = fence.points[0];
+    const lastPoint = fence.points[fence.points.length - 1];
+    const isAlreadyClosed = firstPoint[0] === lastPoint[0] && firstPoint[1] === lastPoint[1];
+    
+    // Create polygon - only add first point again if not already closed
+    const polygon = isAlreadyClosed ? [fence.points] : [[...fence.points, fence.points[0]]];
     
     const geojson = {
       type: 'Feature',
@@ -318,6 +350,14 @@ class FenceManager {
     return false;
   }
 
+  isClickOnFirstFencePoint(lngLat) {
+    // Check if click is specifically on the first fence point
+    if (this.fencePoints.length === 0) return false;
+    const firstPoint = this.fencePoints[0];
+    const distance = this.calculateDistance(lngLat, firstPoint);
+    return distance < 0.0005; // Roughly 20 pixels at zoom level 15
+  }
+
   calculateDistance(point1, point2) {
     const dx = point1[0] - point2[0];
     const dy = point1[1] - point2[1];
@@ -326,6 +366,22 @@ class FenceManager {
 
   getFencePoints() {
     return this.fencePoints;
+  }
+
+  getFencePointsWithClosure() {
+    // Return fence points with guaranteed first and last point matching
+    if (this.fencePoints.length < 3) return this.fencePoints;
+    
+    const points = [...this.fencePoints];
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    
+    // Ensure the last point matches the first point
+    if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
+      points[points.length - 1] = [firstPoint[0], firstPoint[1]];
+    }
+    
+    return points;
   }
 
   getFences() {

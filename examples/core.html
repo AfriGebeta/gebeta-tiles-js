@@ -32,6 +32,7 @@
       background: #f8f9fa;
       cursor: pointer;
       font-size: 14px;
+       color: black;
     }
     .control-panel button:hover {
       background: #e9ecef;
@@ -43,6 +44,16 @@
       padding: 8px;
       background: #f8f9fa;
       border-radius: 4px;
+    }
+    .control-panel .points {
+      margin-top: 10px;
+      color: #333;
+    }
+    .control-panel .points ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        color: #333;
     }
   </style>
 </head>
@@ -66,10 +77,17 @@
       • Press 'C' to clear the current fence<br>
       • Custom fence points can have custom images
     </div>
+    <div class="points">
+        <strong>Fence Points:</strong><br>
+        <ul id="fence-points-list">
+            <!-- Fence points will be dynamically added here -->
+        </ul>
+    </div>
   </div>
 
   <!-- IMPORTANT: load the gebeta-maps.umd.js file from the tiles.gebeta.app cdn server. -->
-  <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script>
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script type="module" src="../dist/gebeta-maps.umd.js"></script>
   <!-- this is just a utility to load the env for all examples -->
   <script src="config.js"></script>
 
@@ -98,10 +116,14 @@
         gebetaMap.on('click', (e) => {
             const lngLat = [e.lngLat.lng, e.lngLat.lat];
             gebetaMap.addFencePoint(lngLat);
+
+            console.log('Added fence point:', lngLat);
+            updateFencePointsList();
             
             // Check if fence is completed after adding the point
             if (gebetaMap.isFenceCompleted()) {
                 console.log('🎉 Fence completed!');
+                updateFencePointsList();
                 
                 // Update the info panel to show completion
                 const infoPanel = document.querySelector('.info');
@@ -140,6 +162,33 @@
         });
     });
 
+    function updateFencePointsList() {
+        const fencePointsList = document.getElementById('fence-points-list');
+        if (!fencePointsList) return;
+        
+        // Clear the existing list
+        fencePointsList.innerHTML = '';
+        
+        // Get fence points from the FenceManager
+        const fencePoints = gebetaMap.getFencePointsWithClosure();
+        
+        if (fencePoints.length === 0) return;
+        
+        // Add each point to the list
+        fencePoints.forEach((point, index) => {
+            const listItem = document.createElement('li');
+            listItem.textContent = `Point ${index + 1}: [${point[0].toFixed(4)}, ${point[1].toFixed(4)}]`;
+            fencePointsList.appendChild(listItem);
+        });
+        
+        // Add completion message if fence is completed
+        if (gebetaMap.isFenceCompleted()) {
+            const paragraph = document.createElement('p');
+            paragraph.textContent = `Fence completed with ${fencePoints.length} points.`;
+            fencePointsList.appendChild(paragraph);
+        }
+    }
+
     function addFencePoint() {
         if (!gebetaMap) return;
         console.log('Click on the map to add fence points');
@@ -160,12 +209,16 @@
         );
         
         console.log('Added custom fence point with click handler');
+        updateFencePointsList();
     }
 
     function clearFence() {
         if (!gebetaMap) return;
         gebetaMap.clearFence();
         console.log('Fence cleared');
+        
+        // Clear the fence points list
+        updateFencePointsList();
         
         // Reset the info panel
         const infoPanel = document.querySelector('.info');
@@ -187,6 +240,9 @@
         if (!gebetaMap) return;
         gebetaMap.clearAllFences();
         console.log('All fences cleared');
+        
+        // Clear the fence points list
+        updateFencePointsList();
         
         // Reset the info panel
         const infoPanel = document.querySelector('.info');
