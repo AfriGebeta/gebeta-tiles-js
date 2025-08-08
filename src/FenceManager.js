@@ -177,6 +177,7 @@ class FenceManager {
     if (!this.map) return;
 
     this.fencePoints = [];
+    this.fenceMarkerList = [];
 
     // Only remove current fence source/layer if it exists
     if (this.map.getSource(this.fenceSourceId)) {
