@@ -45,6 +45,7 @@ Demonstrates the core fence drawing functionality:
 - Multi-fence support with automatic storage
 - Click-to-close fence functionality
 - Point-in-polygon detection for starting new fences
+- Custom color support and default color configuration
 
 ### Custom Markers
 [examples/markers.html](examples/markers.html)
@@ -79,6 +80,9 @@ const gebetaMap = new GebetaMaps({
         clusterOnClick: (cluster, event) => {}
     }
 });
+
+// Initialize fence manager with custom default color
+gebetaMap.initFenceManager('#ff6600'); // Orange default color
 ```
 
 ### Core Methods
@@ -93,13 +97,14 @@ const gebetaMap = new GebetaMaps({
 - `clearAllMarkers()` - Remove all markers from the map
 
 #### Fence Drawing
-- `addFencePoint(lngLat, customImage, onClick)` - Add a point to the current fence
+- `addFencePoint(lngLat, customImage, onClick, color)` - Add a point to the current fence with optional custom color
 - `clearFence()` - Clear the current fence being drawn
 - `clearAllFences()` - Clear all fences on the map
 - `isFenceCompleted()` - Check if the current fence is complete
 - `isPointInsideFence(lngLat)` - Test if a point is inside the current fence
 - `getFencePoints()` - Get current fence points
 - `getFences()` - Get all stored fences
+- `setFenceDefaultColor(color)` - Set the default color for new fences
 
 ## Configuration
 
@@ -120,10 +125,47 @@ const clusteringConfig = {
 
 ### Fence Drawing Features
 
-- **Dynamic Preview**: Red dashed line follows cursor while drawing
+- **Dynamic Preview**: Colored dashed line follows cursor while drawing
 - **Multi-Fence Support**: Store and display multiple fences simultaneously
 - **Auto-Completion**: Click on existing points to close fences
 - **Smart Detection**: Automatically start new fences when clicking outside completed ones
+- **Color Customization**: Support for custom colors per fence and default color configuration
+
+### Fence Color Management
+
+The fence manager supports flexible color customization:
+
+#### Setting Custom Colors
+```javascript
+// Add a fence point with a specific color
+gebetaMap.addFencePoint(
+    [38.7685, 9.0161],
+    customImage,
+    onClickHandler,
+    '#0066cc' // Blue color
+);
+
+// Set default color for all new fences
+gebetaMap.setFenceDefaultColor('#00cc00'); // Green
+```
+
+#### Color Options
+- **Hex Colors**: Use any valid hex color code (e.g., `#ff0000`, `#00ff00`)
+- **Default Color**: Initialize with a custom default color
+- **Per-Fence Colors**: Each fence can have its own unique color
+- **Color Persistence**: Colors are preserved when storing multiple fences
+
+#### Example: Random Colors
+```javascript
+// Generate random colors for each new fence
+function generateRandomColor() {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Use random color for new fence
+gebetaMap.addFencePoint(lngLat, null, null, generateRandomColor());
+```
 
 ## Architecture
 

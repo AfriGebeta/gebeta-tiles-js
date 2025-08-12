@@ -1,14 +1,16 @@
 import maplibregl from 'maplibre-gl';
 
 class FenceManager {
-  constructor(map, clusteringEnabled = false) {
+  constructor(map, clusteringEnabled = false, defaultColor = '#ff0000') {
     this.map = map;
     this.clusteringEnabled = clusteringEnabled;
+    this.defaultColor = defaultColor;
     
     // Current fence state
     this.fencePoints = [];
     this.fenceMarkerList = [];
     this.isDrawingFence = false;
+    this.currentFenceColor = this.defaultColor;
     
     // Multiple fences support
     this.fences = [];
@@ -21,8 +23,13 @@ class FenceManager {
     this.dynamicPolylineLayerId = 'dynamic-fence-line';
   }
 
-  addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback) {
+  addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null) {
     if (!this.map) throw new Error("Map not initialized.");
+
+    // Set the color for this fence if provided
+    if (color) {
+      this.currentFenceColor = color;
+    }
 
     // If we have a completed fence and click is outside, start a new fence
     if (this.isFenceCompleted() && !this.isPointInsideFence(lngLat)) {
@@ -81,7 +88,7 @@ class FenceManager {
       type: 'line',
       source: this.dynamicPolylineSourceId,
       paint: {
-        'line-color': '#ff0000',
+        'line-color': this.currentFenceColor,
         'line-width': 2,
         'line-dasharray': [2, 2]
       }
@@ -155,6 +162,7 @@ class FenceManager {
         id: this.currentFenceId++,
         points: [...this.fencePoints],
         markers: [...this.fenceMarkerList],
+        color: this.currentFenceColor,
         sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
         layerId: `${this.fenceLayerId}-${this.currentFenceId}`
       };
@@ -164,6 +172,7 @@ class FenceManager {
       // Clear current fence state but keep the stored fence visible
       this.fencePoints = [];
       this.fenceMarkerList = [];
+      this.currentFenceColor = this.defaultColor; // Reset to default color
       this.stopFenceDrawing();
       
       // Redraw all fences to ensure they're all visible
@@ -253,7 +262,7 @@ class FenceManager {
         source: this.fenceSourceId,
         layout: {},
         paint: {
-          'fill-color': '#ff0000',
+          'fill-color': this.currentFenceColor,
           'fill-opacity': 0.3,
         },
       });
@@ -305,7 +314,7 @@ class FenceManager {
         source: fence.sourceId,
         layout: {},
         paint: {
-          'fill-color': '#ff0000',
+          'fill-color': fence.color || this.defaultColor,
           'fill-opacity': 0.3,
         },
       });

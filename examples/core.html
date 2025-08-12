@@ -32,7 +32,7 @@
       background: #f8f9fa;
       cursor: pointer;
       font-size: 14px;
-       color: black;
+      color: black;
     }
     .control-panel button:hover {
       background: #e9ecef;
@@ -64,19 +64,23 @@
     <h3>Core Features - Fence Drawing</h3>
     <button onclick="addFencePoint()">Add Fence Point (Click Map)</button>
     <button onclick="addCustomFencePoint()">Add Custom Fence Point</button>
+    <button onclick="addColoredFencePoint()">Add Blue Fence Point</button>
+    <button onclick="setGreenDefaultColor()">Set Green Default Color</button>
+    <button onclick="resetToRandomColors()">Reset to Random Colors</button>
     <button onclick="clearFence()">Clear Current Fence (C)</button>
     <button onclick="clearAllFences()">Clear All Fences</button>
-    <div class="info">
-      <strong>Instructions:</strong><br>
-      • Click on the map to add fence points<br>
-      • A red dashed line follows your cursor while drawing<br>
-      • Click on any existing fence point to close the fence<br>
-      • Add at least 3 points to draw a complete fence<br>
-      • Click outside a completed fence to start a new one<br>
-      • Multiple fences can coexist on the map<br>
-      • Press 'C' to clear the current fence<br>
-      • Custom fence points can have custom images
-    </div>
+          <div class="info">
+        <strong>Instructions:</strong><br>
+        • Click on the map to add fence points<br>
+        • Each new fence gets a random color by default<br>
+        • A colored dashed line follows your cursor while drawing<br>
+        • Click on any existing fence point to close the fence<br>
+        • Add at least 3 points to draw a complete fence<br>
+        • Click outside a completed fence to start a new one<br>
+        • Multiple fences can coexist on the map<br>
+        • Press 'C' to clear the current fence<br>
+        • Custom fence points can have custom images and colors
+      </div>
     <div class="points">
         <strong>Fence Points:</strong><br>
         <ul id="fence-points-list">
@@ -87,13 +91,16 @@
 
   <!-- IMPORTANT: load the gebeta-maps.umd.js file from the tiles.gebeta.app cdn server. -->
   <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
-  <script type="module" src="../dist/gebeta-maps.umd.js"></script>
+   <script src="../dist/gebeta-maps.umd.js"></script>
   <!-- this is just a utility to load the env for all examples -->
   <script src="config.js"></script>
 
 <script>
     let gebetaMap;
     let map;
+    let fencePoints = [];
+    let useRandomColors = true; // Default to random colors
+    let currentFenceColor = null; // Track current fence color
 
     document.addEventListener('DOMContentLoaded', () => {
         const config = loadConfig();
@@ -115,15 +122,78 @@
 
         gebetaMap.on('click', (e) => {
             const lngLat = [e.lngLat.lng, e.lngLat.lat];
-            gebetaMap.addFencePoint(lngLat);
+            
+            // If we have a completed fence and click is outside, clear everything and start fresh
+            if (gebetaMap.isFenceCompleted() && !gebetaMap.isPointInsideFence(lngLat)) {
+                console.log('Clearing old fence and markers...');
+                
+                // Clear the current fence
+                gebetaMap.clearFence();
+                
+                // Clear all markers using the built-in method
+                gebetaMap.clearAllMarkers();
+                
+                // Reset the fence points array and UI
+                fencePoints = [];
+                const fencePointsList = document.getElementById('fence-points-list');
+                if (fencePointsList) {
+                    fencePointsList.innerHTML = '';
+                    console.log('Cleared fence points list');
+                }
+                
+                // Generate new random color for the new fence if random colors are enabled
+                if (useRandomColors) {
+                    currentFenceColor = generateRandomColor();
+                    console.log('Generated new random color for fence:', currentFenceColor);
+                }
+                
+                // Reset the info panel
+                const infoPanel = document.querySelector('.info');
+                if (infoPanel) {
+                    infoPanel.innerHTML = `
+                        <strong>Instructions:</strong><br>
+                        • Click on the map to add fence points<br>
+                        • Each new fence gets a random color by default<br>
+                        • A colored dashed line follows your cursor while drawing<br>
+                        • Click on any existing fence point to close the fence<br>
+                        • Add at least 3 points to draw a complete fence<br>
+                        • Click outside a completed fence to start a new one<br>
+                        • Press 'C' to clear the current fence<br>
+                        • Custom fence points can have custom images and colors
+                    `;
+                }
+                
+                console.log('Cleared old fence and markers, starting new fence');
+            }
+            
+            // Generate color for first fence if random colors are enabled and no color is set yet
+            if (useRandomColors && currentFenceColor === null && fencePoints.length === 0) {
+                currentFenceColor = generateRandomColor();
+                console.log('Generated first random color for fence:', currentFenceColor);
+            }
+            
+            // Add the fence point (this will be the first point of the new fence if we just cleared)
+            gebetaMap.addFencePoint(lngLat, null, null, currentFenceColor);
+            fencePoints.push(lngLat)
 
             console.log('Added fence point:', lngLat);
-            updateFencePointsList();
-            
+            // Update the fence points list in the control panel
+            const fencePointsList = document.getElementById('fence-points-list');
+            if (fencePointsList) {
+                const listItem = document.createElement('li');
+                listItem.textContent = `Point ${fencePoints.length}: [${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}]`;
+                fencePointsList.appendChild(listItem);
+            }
             // Check if fence is completed after adding the point
             if (gebetaMap.isFenceCompleted()) {
                 console.log('🎉 Fence completed!');
-                updateFencePointsList();
+                // add info about fence completion
+                const fencePointList = document.getElementById('fence-points-list');
+                if (fencePointList) {
+                  const paragraph = document.createElement('p');
+                    paragraph.textContent = `Fence completed with ${fencePoints.length} points.`;
+                    fencePointList.appendChild(paragraph);
+                }
                 
                 // Update the info panel to show completion
                 const infoPanel = document.querySelector('.info');
@@ -162,33 +232,6 @@
         });
     });
 
-    function updateFencePointsList() {
-        const fencePointsList = document.getElementById('fence-points-list');
-        if (!fencePointsList) return;
-        
-        // Clear the existing list
-        fencePointsList.innerHTML = '';
-        
-        // Get fence points from the FenceManager
-        const fencePoints = gebetaMap.getFencePointsWithClosure();
-        
-        if (fencePoints.length === 0) return;
-        
-        // Add each point to the list
-        fencePoints.forEach((point, index) => {
-            const listItem = document.createElement('li');
-            listItem.textContent = `Point ${index + 1}: [${point[0].toFixed(4)}, ${point[1].toFixed(4)}]`;
-            fencePointsList.appendChild(listItem);
-        });
-        
-        // Add completion message if fence is completed
-        if (gebetaMap.isFenceCompleted()) {
-            const paragraph = document.createElement('p');
-            paragraph.textContent = `Fence completed with ${fencePoints.length} points.`;
-            fencePointsList.appendChild(paragraph);
-        }
-    }
-
     function addFencePoint() {
         if (!gebetaMap) return;
         console.log('Click on the map to add fence points');
@@ -202,6 +245,7 @@
         gebetaMap.addFencePoint(
             [38.7650, 9.0140],
             customImage,
+
             (lngLat, marker, event) => {
                 console.log('Custom fence point clicked:', lngLat);
                 alert(`Custom fence point at: ${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}`);
@@ -209,7 +253,56 @@
         );
         
         console.log('Added custom fence point with click handler');
-        updateFencePointsList();
+    }
+
+    function addColoredFencePoint() {
+        if (!gebetaMap) return;
+        
+        // Add a fence point with a custom color (blue)
+        const customImage = 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png';
+        gebetaMap.addFencePoint(
+            [38.7700, 9.0200],
+            customImage,
+            (lngLat, marker, event) => {
+                console.log('Blue fence point clicked:', lngLat);
+                alert(`Blue fence point at: ${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}`);
+            },
+            '#0066cc' // Blue color
+        );
+        
+        console.log('Added blue fence point');
+    }
+
+    function setGreenDefaultColor() {
+        if (!gebetaMap) return;
+        
+        // Set the default color for new fences to green
+        gebetaMap.setFenceDefaultColor('#00cc00');
+        useRandomColors = false; // Disable random colors
+        currentFenceColor = '#00cc00';
+        console.log('Set default fence color to green');
+        alert('Default fence color set to green. New fences will be green.');
+    }
+
+    function generateRandomColor() {
+        // Generate a random color with good contrast
+        const colors = [
+            '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff',
+            '#ff6600', '#6600ff', '#00ff66', '#ff0066', '#0066ff', '#66ff00',
+            '#ff9900', '#9900ff', '#00ff99', '#ff0099', '#0099ff', '#99ff00',
+            '#cc6600', '#6600cc', '#00cc66', '#cc0066', '#0066cc', '#66cc00'
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function resetToRandomColors() {
+        if (!gebetaMap) return;
+        
+        useRandomColors = true;
+        currentFenceColor = null;
+        gebetaMap.setFenceDefaultColor('#ff0000'); // Reset to default red
+        console.log('Reset to random colors mode');
+        alert('Reset to random colors mode. Each new fence will have a random color.');
     }
 
     function clearFence() {
@@ -217,21 +310,19 @@
         gebetaMap.clearFence();
         console.log('Fence cleared');
         
-        // Clear the fence points list
-        updateFencePointsList();
-        
         // Reset the info panel
         const infoPanel = document.querySelector('.info');
         if (infoPanel) {
             infoPanel.innerHTML = `
                 <strong>Instructions:</strong><br>
                 • Click on the map to add fence points<br>
-                • A red dashed line follows your cursor while drawing<br>
+                • Each new fence gets a random color by default<br>
+                • A colored dashed line follows your cursor while drawing<br>
                 • Click on any existing fence point to close the fence<br>
                 • Add at least 3 points to draw a complete fence<br>
                 • Click outside a completed fence to start a new one<br>
                 • Press 'C' to clear the fence<br>
-                • Custom fence points can have custom images
+                • Custom fence points can have custom images and colors
             `;
         }
     }
@@ -241,22 +332,20 @@
         gebetaMap.clearAllFences();
         console.log('All fences cleared');
         
-        // Clear the fence points list
-        updateFencePointsList();
-        
         // Reset the info panel
         const infoPanel = document.querySelector('.info');
         if (infoPanel) {
             infoPanel.innerHTML = `
                 <strong>Instructions:</strong><br>
                 • Click on the map to add fence points<br>
-                • A red dashed line follows your cursor while drawing<br>
+                • Each new fence gets a random color by default<br>
+                • A colored dashed line follows your cursor while drawing<br>
                 • Click on any existing fence point to close the fence<br>
                 • Add at least 3 points to draw a complete fence<br>
                 • Click outside a completed fence to start a new one<br>
                 • Multiple fences can coexist on the map<br>
                 • Press 'C' to clear the current fence<br>
-                • Custom fence points can have custom images
+                • Custom fence points can have custom images and colors
             `;
         }
     }

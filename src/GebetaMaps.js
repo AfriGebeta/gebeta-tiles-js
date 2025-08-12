@@ -78,9 +78,15 @@ class GebetaMaps {
     this.clusteringManager = new ClusteringManager(this.map, this.clustering);
   }
 
-  initFenceManager() {
+  initFenceManager(defaultColor = '#ff0000') {
     if (!this.map) return;
-    this.fenceManager = new FenceManager(this.map, this.clustering.enabled);
+    this.fenceManager = new FenceManager(this.map, this.clustering.enabled, defaultColor);
+  }
+
+  setFenceDefaultColor(color) {
+    if (!this.fenceManager) return;
+    this.fenceManager.defaultColor = color;
+    this.fenceManager.currentFenceColor = color;
   }
 
   initDirectionsManager() {
@@ -150,13 +156,13 @@ class GebetaMaps {
     return { marker, popup };
   }
 
-  addFencePoint(lngLat, customImage = null, onClick = null) {
+  addFencePoint(lngLat, customImage = null, onClick = null, color = null) {
     if (!this.fenceManager) {
       console.warn("Fence manager not initialized. Fence functionality may not work properly.");
       return;
     }
     
-    this.fenceManager.addFencePoint(lngLat, customImage, onClick, this.addImageMarker.bind(this));
+    this.fenceManager.addFencePoint(lngLat, customImage, onClick, this.addImageMarker.bind(this), color);
   }
 
   clearFence() {
