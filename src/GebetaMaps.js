@@ -156,13 +156,13 @@ class GebetaMaps {
     return { marker, popup };
   }
 
-  addFencePoint(lngLat, customImage = null, onClick = null, color = null) {
+  addFencePoint(lngLat, customImage = null, onClick = null, color = null, options = null) {
     if (!this.fenceManager) {
       console.warn("Fence manager not initialized. Fence functionality may not work properly.");
       return;
     }
     
-    this.fenceManager.addFencePoint(lngLat, customImage, onClick, this.addImageMarker.bind(this), color);
+    this.fenceManager.addFencePoint(lngLat, customImage, onClick, this.addImageMarker.bind(this), color, options);
   }
 
   clearFence() {
@@ -198,6 +198,79 @@ class GebetaMaps {
   getFences() {
     if (!this.fenceManager) return [];
     return this.fenceManager.getFences();
+  }
+
+  setFenceOverlay(overlayHtml, options = {}) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceOverlay(overlayHtml, options);
+  }
+
+  storeCurrentFence() {
+    if (!this.fenceManager) return null;
+    return this.fenceManager.storeCurrentFence();
+  }
+
+  renderFencesFromArray(fences, options = {}) {
+    if (!this.fenceManager) return;
+
+    const {
+      clearExisting = true,
+      autoColor = true,
+      startHue = 0,
+      hueStep = 180,
+      overlayAnchor = 'bottom'
+    } = options;
+
+    if (clearExisting) {
+      this.clearAllFences();
+      this.clearAllMarkers();
+    }
+
+    const normalizeItem = (item, index) => {
+      if (Array.isArray(item)) {
+        return { name: `Path ${index + 1}`, points: item };
+      }
+      if (item && Array.isArray(item.points)) {
+        return {
+          name: item.name || `Path ${index + 1}`,
+          points: item.points,
+          color: item.color,
+          overlayHtml: item.overlayHtml,
+          overlayOptions: item.overlayOptions
+        };
+      }
+      return null;
+    };
+    // Temporarily disable proximity-based auto-closure during batch rendering
+    const prevFlag = this.fenceManager.disableProximityClosure;
+    this.fenceManager.disableProximityClosure = true;
+
+    fences.forEach((rawItem, index) => {
+      const item = normalizeItem(rawItem, index);
+      if (!item || !Array.isArray(item.points) || item.points.length === 0) return;
+
+      const color = item.color || (autoColor ? `hsl(${startHue + index * hueStep}, 80%, 50%)` : this.fenceManager.defaultColor);
+
+      const overlayHtml = item.overlayHtml || (item.name
+        ? `<div style="padding:4px 8px;background:#fff;border:2px solid ${color};border-radius:6px;font-size:12px;color:#111;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2);transform:translateY(-6px);">${item.name}</div>`
+        : null);
+      const firstPointOptions = overlayHtml ? { overlayHtml, overlayOptions: { anchor: overlayAnchor } } : null;
+
+      item.points.forEach((point, pointIndex) => {
+        this.addFencePoint(point, null, null, color, pointIndex === 0 ? firstPointOptions : null);
+      });
+
+      if (item.points.length >= 3) {
+        // Explicitly add first point again to close visually, then store
+        this.addFencePoint(item.points[0], null, null, color);
+        this.storeCurrentFence();
+      }
+    });
+
+    // Restore proximity closure flag
+    this.fenceManager.disableProximityClosure = prevFlag;
+
+    // No finalization needed; each path is explicitly stored above
   }
 
   // Directions API methods

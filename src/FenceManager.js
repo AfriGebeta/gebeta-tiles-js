@@ -12,6 +12,14 @@ class FenceManager {
     this.isDrawingFence = false;
     this.currentFenceColor = this.defaultColor;
     
+    // Overlay for current fence
+    this.currentFenceOverlayHtml = null;
+    this.currentFenceOverlayOptions = {};
+    this.currentFenceOverlayMarker = null;
+    
+    // Controls whether proximity to the first point should auto-close the fence
+    this.disableProximityClosure = false;
+    
     // Multiple fences support
     this.fences = [];
     this.currentFenceId = 0;
@@ -23,7 +31,7 @@ class FenceManager {
     this.dynamicPolylineLayerId = 'dynamic-fence-line';
   }
 
-  addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null) {
+  addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null, options = null) {
     if (!this.map) throw new Error("Map not initialized.");
 
     // Set the color for this fence if provided
@@ -36,8 +44,9 @@ class FenceManager {
       this.startNewFence();
     }
 
-    // If clicking on the first point, close the fence
-    if (this.isDrawingFence && this.isClickOnFirstFencePoint(lngLat)) {
+    // If clicking on the first point, close the fence (unless disabled via flag/options)
+    const suppressAutoClose = (options && options.suppressAutoClose) || this.disableProximityClosure;
+    if (!suppressAutoClose && this.isDrawingFence && this.isClickOnFirstFencePoint(lngLat)) {
       // Add the first point as a new point to close the fence
       // Use the exact same coordinate format as the first point
       this.fencePoints.push([this.fencePoints[0][0], this.fencePoints[0][1]]);
@@ -47,13 +56,20 @@ class FenceManager {
     }
 
     this.fencePoints.push(lngLat);
+
+    // If options specify an overlay for this fence and we don't yet have one queued, set it
+    if (options && options.overlayHtml && !this.currentFenceOverlayHtml) {
+      this.currentFenceOverlayHtml = options.overlayHtml;
+      this.currentFenceOverlayOptions = options.overlayOptions || {};
+    }
     
     const markerImage = customImage || 'https://cdn-icons-png.flaticon.com/512/484/484167.png';
-    const marker = addImageMarkerCallback(lngLat, markerImage, [30, 30], onClick);
+    const markerResult = addImageMarkerCallback(lngLat, markerImage, [30, 30], onClick);
     
     // Store fence markers separately (only for non-clustered markers)
     if (!this.clusteringEnabled) {
-      this.fenceMarkerList.push(marker);
+      const markerInstance = markerResult && markerResult.marker ? markerResult.marker : markerResult;
+      if (markerInstance) this.fenceMarkerList.push(markerInstance);
     }
 
     if (this.fencePoints.length >= 3) {
@@ -142,9 +158,9 @@ class FenceManager {
     console.debug('CloseFence - Last point lng:', lastPoint[0], 'lat:', lastPoint[1]);
     
     if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
-      console.debug('First and last points do not match. Setting last point to match first point.');
-      this.fencePoints[this.fencePoints.length - 1] = [firstPoint[0], firstPoint[1]];
-      console.debug('CloseFence - After setting, last point:', this.fencePoints[this.fencePoints.length - 1]);
+      console.debug('First and last points do not match. Appending first point to close fence.');
+      this.fencePoints.push([firstPoint[0], firstPoint[1]]);
+      console.debug('CloseFence - After appending, last point:', this.fencePoints[this.fencePoints.length - 1]);
     } else {
       console.debug('First and last points already match.');
     }
@@ -153,18 +169,35 @@ class FenceManager {
     this.stopFenceDrawing();
     
     console.debug('Fence closed with', this.fencePoints.length, 'points');
+
+    // If an overlay was set for the current fence, place it now
+    if (this.currentFenceOverlayHtml) {
+      this._placeOverlayForCurrentFence();
+    }
   }
 
   startNewFence() {
     // Store the current completed fence
     if (this.isFenceCompleted()) {
+      const pointsToStore = (() => {
+        const fp = this.fencePoints;
+        if (fp.length < 3) return [...fp];
+        const f = fp[0];
+        const l = fp[fp.length - 1];
+        const isClosed = f[0] === l[0] && f[1] === l[1];
+        return isClosed ? [...fp] : [...fp, [f[0], f[1]]];
+      })();
+
       const completedFence = {
         id: this.currentFenceId++,
-        points: [...this.fencePoints],
+        points: pointsToStore,
         markers: [...this.fenceMarkerList],
         color: this.currentFenceColor,
         sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
-        layerId: `${this.fenceLayerId}-${this.currentFenceId}`
+        layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
+        overlayHtml: this.currentFenceOverlayHtml,
+        overlayOptions: { ...this.currentFenceOverlayOptions },
+        overlayMarker: this.currentFenceOverlayMarker || null
       };
       
       this.fences.push(completedFence);
@@ -174,6 +207,20 @@ class FenceManager {
       this.fenceMarkerList = [];
       this.currentFenceColor = this.defaultColor; // Reset to default color
       this.stopFenceDrawing();
+
+      // Remove the transient current-fence source/layer to avoid duplicates
+      if (this.map.getSource(this.fenceSourceId)) {
+        if (this.map.getLayer(this.fenceLayerId)) this.map.removeLayer(this.fenceLayerId);
+        this.map.removeSource(this.fenceSourceId);
+      }
+
+      // Reset current overlay state so the next fence can define its own overlay
+      if (this.currentFenceOverlayMarker) {
+        this.currentFenceOverlayMarker.remove();
+        this.currentFenceOverlayMarker = null;
+      }
+      this.currentFenceOverlayHtml = null;
+      this.currentFenceOverlayOptions = {};
       
       // Redraw all fences to ensure they're all visible
       this.drawAllFences();
@@ -202,6 +249,14 @@ class FenceManager {
 
     // Stop drawing mode and remove dynamic polyline
     this.stopFenceDrawing();
+
+    // Remove current fence overlay marker and state
+    if (this.currentFenceOverlayMarker) {
+      this.currentFenceOverlayMarker.remove();
+      this.currentFenceOverlayMarker = null;
+    }
+    this.currentFenceOverlayHtml = null;
+    this.currentFenceOverlayOptions = {};
   }
 
   clearAllFences() {
@@ -220,6 +275,12 @@ class FenceManager {
       // Remove fence markers
       if (!this.clusteringEnabled) {
         fence.markers.forEach(marker => marker.remove());
+      }
+
+      // Remove overlay marker
+      if (fence.overlayMarker) {
+        fence.overlayMarker.remove();
+        fence.overlayMarker = null;
       }
     });
 
@@ -319,6 +380,15 @@ class FenceManager {
         },
       });
     }
+
+    // Ensure overlay is placed for stored fence if it has one
+    if (fence.overlayHtml && !fence.overlayMarker) {
+      fence.overlayMarker = this._createOverlayMarkerForPoints(
+        fence.points,
+        fence.overlayHtml,
+        fence.overlayOptions || {}
+      );
+    }
   }
 
   isFenceCompleted() {
@@ -396,6 +466,138 @@ class FenceManager {
 
   getFences() {
     return this.fences;
+  }
+
+  // Public API: set an HTML overlay for the current fence. If the fence is already completed,
+  // the overlay will be placed immediately; otherwise it will be placed on fence close.
+  setFenceOverlay(overlayHtml, options = {}) {
+    this.currentFenceOverlayHtml = overlayHtml;
+    this.currentFenceOverlayOptions = options || {};
+
+    // If fence is already completed, (re)place overlay now
+    if (this.isFenceCompleted()) {
+      // Remove existing marker if any
+      if (this.currentFenceOverlayMarker) {
+        this.currentFenceOverlayMarker.remove();
+        this.currentFenceOverlayMarker = null;
+      }
+      this._placeOverlayForCurrentFence();
+    }
+  }
+
+  // Public API: store the current fence as a completed fence without requiring a click outside.
+  // Ensures the polygon is closed, stores it, resets current state, and redraws all fences.
+  storeCurrentFence() {
+    if (this.fencePoints.length < 3) return null;
+
+    // Prepare a closed copy of points without mutating existing vertices
+    const fp = this.fencePoints;
+    const firstPoint = fp[0];
+    const lastPoint = fp[fp.length - 1];
+    const isClosed = firstPoint[0] === lastPoint[0] && firstPoint[1] === lastPoint[1];
+    const pointsToStore = isClosed ? [...fp] : [...fp, [firstPoint[0], firstPoint[1]]];
+
+    // Stop drawing if still active and draw final polygon
+    this.drawFence();
+    this.stopFenceDrawing();
+
+    // Remove the transient current-fence source/layer to avoid duplicates
+    if (this.map.getSource(this.fenceSourceId)) {
+      if (this.map.getLayer(this.fenceLayerId)) this.map.removeLayer(this.fenceLayerId);
+      this.map.removeSource(this.fenceSourceId);
+    }
+
+    const completedFence = {
+      id: this.currentFenceId++,
+      points: pointsToStore,
+      markers: [...this.fenceMarkerList],
+      color: this.currentFenceColor,
+      sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
+      layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
+      overlayHtml: this.currentFenceOverlayHtml,
+      overlayOptions: { ...this.currentFenceOverlayOptions },
+      overlayMarker: this.currentFenceOverlayMarker || null
+    };
+
+    this.fences.push(completedFence);
+
+    // Reset current state for next fence
+    this.fencePoints = [];
+    this.fenceMarkerList = [];
+    this.currentFenceColor = this.defaultColor;
+    if (this.currentFenceOverlayMarker) {
+      this.currentFenceOverlayMarker = null;
+    }
+    this.currentFenceOverlayHtml = null;
+    this.currentFenceOverlayOptions = {};
+
+    // Redraw everything and ensure overlay marker is placed for the stored fence
+    this.drawAllFences();
+
+    return completedFence;
+  }
+
+  // Internal: place overlay for current fence
+  _placeOverlayForCurrentFence() {
+    if (this.fencePoints.length < 3 || !this.currentFenceOverlayHtml) return;
+    this.currentFenceOverlayMarker = this._createOverlayMarkerForPoints(
+      this.fencePoints,
+      this.currentFenceOverlayHtml,
+      this.currentFenceOverlayOptions
+    );
+  }
+
+  _createOverlayMarkerForPoints(points, overlayHtml, options = {}) {
+    const centroid = this._computePolygonCentroid(points);
+    let element;
+    if (typeof overlayHtml === 'string') {
+      element = document.createElement('div');
+      element.innerHTML = overlayHtml;
+      // If string contains multiple nodes, wrap in a div
+      if (element.childNodes.length === 1 && element.firstChild instanceof HTMLElement) {
+        element = element.firstChild;
+      }
+    } else if (overlayHtml instanceof HTMLElement) {
+      element = overlayHtml;
+    } else {
+      throw new Error('overlayHtml must be a string or HTMLElement');
+    }
+
+    const markerOptions = {};
+    if (options.anchor) markerOptions.anchor = options.anchor;
+    if (options.offset) markerOptions.offset = options.offset;
+
+    const marker = new maplibregl.Marker({ element, ...markerOptions })
+      .setLngLat(centroid)
+      .addTo(this.map);
+    return marker;
+  }
+
+  _computePolygonCentroid(points) {
+    if (!points || points.length === 0) return [0, 0];
+    const isClosed = points[0][0] === points[points.length - 1][0] && points[0][1] === points[points.length - 1][1];
+    const pts = isClosed ? points : [...points, points[0]];
+    let twiceArea = 0;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const xi = pts[i][0];
+      const yi = pts[i][1];
+      const xj = pts[i + 1][0];
+      const yj = pts[i + 1][1];
+      const f = xi * yj - xj * yi;
+      twiceArea += f;
+      x += (xi + xj) * f;
+      y += (yi + yj) * f;
+    }
+    if (twiceArea === 0) {
+      // Fallback to average of points (excluding duplicated last)
+      const count = pts.length - 1;
+      const sum = pts.slice(0, -1).reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0]);
+      return [sum[0] / count, sum[1] / count];
+    }
+    const area = twiceArea * 0.5;
+    return [x / (6 * area), y / (6 * area)];
   }
 }
 
