@@ -30,6 +30,16 @@ class GebetaMaps {
     this.directionsManager = null;
 
     this.geocodingManager = new GeocodingManager(apiKey);
+
+    // Fullscreen popup state
+    this._fullscreen = {
+      overlayEl: null,
+      closeBtnEl: null,
+      originalParent: null,
+      originalNextSibling: null,
+      isOpen: false,
+      keydownHandler: null,
+    };
   }
 
   init(options) {
@@ -55,6 +65,11 @@ class GebetaMaps {
 
     this.addGebetaLogo();
     this.addCustomAttribution();
+
+    // Add fullscreen control by default (can be disabled with options.fullscreenControl = false)
+    if (!options || options.fullscreenControl !== false) {
+      try { this.addFullscreenPopupControl(); } catch (e) {}
+    }
 
     // Initialize managers after map loads
     this.map.on('load', () => {
@@ -102,6 +117,131 @@ class GebetaMaps {
   addNavigationControls(position = 'top-right') {
     if (!this.map) throw new Error("Map not initialized. Call init() first.");
     this.map.addControl(new maplibregl.NavigationControl(), position);
+  }
+
+  /**
+   * Add a custom control that opens the map in a fullscreen popup overlay
+   * which sits above all page content (not using the browser Fullscreen API).
+   */
+  addFullscreenPopupControl(position = 'top-right') {
+    if (!this.map) throw new Error('Map not initialized. Call init() first.');
+
+    const control = {
+      onAdd: () => {
+        const container = document.createElement('div');
+        container.className = 'maplibregl-ctrl maplibregl-ctrl-group gebeta-fullscreen-ctrl';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'gebeta-fullscreen-ctrl__btn';
+        button.setAttribute('aria-label', 'Open fullscreen map');
+        button.innerHTML =
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 14h2v5h5v2H3v-7zm13 7v-2h5v-5h2v7h-7zM19 3h-5V1h7v7h-2V3zM3 8V1h7v2H5v5H3z"/></svg>';
+        button.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.openFullscreenPopup();
+        });
+
+        container.appendChild(button);
+        return container;
+      },
+      onRemove: () => {},
+    };
+
+    this.map.addControl(control, position);
+  }
+
+  openFullscreenPopup() {
+    if (!this.map || this._fullscreen.isOpen) return;
+
+    const mapContainer = this.map.getContainer();
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'gebeta-map-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'gebeta-map-overlay__close';
+    closeBtn.setAttribute('aria-label', 'Close fullscreen map');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', () => this.closeFullscreenPopup());
+
+    overlay.appendChild(closeBtn);
+
+    // Save original placement
+    const originalParent = mapContainer.parentElement;
+    const originalNextSibling = mapContainer.nextSibling;
+
+    // Move map container into overlay
+    overlay.appendChild(mapContainer);
+
+    // Mount overlay
+    document.body.appendChild(overlay);
+
+    // Keyboard handler (Esc to close)
+    const keydownHandler = (ev) => {
+      if (ev.key === 'Escape') {
+        this.closeFullscreenPopup();
+      }
+    };
+    document.addEventListener('keydown', keydownHandler);
+
+    // Persist state
+    this._fullscreen.overlayEl = overlay;
+    this._fullscreen.closeBtnEl = closeBtn;
+    this._fullscreen.originalParent = originalParent;
+    this._fullscreen.originalNextSibling = originalNextSibling;
+    this._fullscreen.keydownHandler = keydownHandler;
+    this._fullscreen.isOpen = true;
+
+    // Resize after relocation
+    setTimeout(() => {
+      try { this.map.resize(); } catch (e) {}
+    }, 0);
+  }
+
+  closeFullscreenPopup() {
+    if (!this.map || !this._fullscreen.isOpen) return;
+
+    const { overlayEl, originalParent, originalNextSibling, keydownHandler } = this._fullscreen;
+    const mapContainer = this.map.getContainer();
+
+    // Move map container back
+    if (originalParent) {
+      if (originalNextSibling) {
+        originalParent.insertBefore(mapContainer, originalNextSibling);
+      } else {
+        originalParent.appendChild(mapContainer);
+      }
+    }
+
+    // Unmount overlay
+    if (overlayEl && overlayEl.parentElement) {
+      overlayEl.parentElement.removeChild(overlayEl);
+    }
+
+    // Cleanup listeners
+    if (keydownHandler) {
+      document.removeEventListener('keydown', keydownHandler);
+    }
+
+    // Reset state
+    this._fullscreen.overlayEl = null;
+    this._fullscreen.closeBtnEl = null;
+    this._fullscreen.originalParent = null;
+    this._fullscreen.originalNextSibling = null;
+    this._fullscreen.keydownHandler = null;
+    this._fullscreen.isOpen = false;
+
+    // Resize after relocation
+    setTimeout(() => {
+      try { this.map.resize(); } catch (e) {}
+    }, 0);
   }
 
   addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10, popupHtml = null) {

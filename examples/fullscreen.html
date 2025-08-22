@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Fullscreen Popup</title>
+  <!-- IMPORTANT: This css file is required for the map to be displayed correctly. -->
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    .page {
+      display: flex;
+      flex-direction: row;
+      height: 100vh;
+      width: 100vw;
+    }
+    #map {
+      flex: 1 1 60%;
+      height: 100vh;
+    }
+    /* Override any global #map absolute/fullscreen rules from shared CSS */
+    .page #map { position: relative !important; top: auto !important; bottom: auto !important; left: auto !important; right: auto !important; width: auto !important; }
+    .side-panel {
+      flex: 1 1 40%;
+      min-width: 320px;
+      max-width: 520px;
+      height: 100vh;
+      overflow: auto;
+      background: #fff;
+      padding: 16px;
+      box-sizing: border-box;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+    }
+    .side-panel h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      color: #000;
+    }
+    .side-panel p { color: #000; font-size: 14px; line-height: 1.5; }
+    .side-panel button {
+      display: block;
+      width: 100%;
+      margin: 6px 0;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: pointer;
+      font-size: 14px;
+      color: #000;
+      box-sizing: border-box;
+    }
+    .side-panel button:hover { background: #e9ecef; }
+    .hint { font-size: 12px; color: #555; margin-top: 6px; }
+  </style>
+  <!-- OPTIONAL: Include minimal overlay styles locally in case your CSS bundle is not updated yet. -->
+  <style>
+    .gebeta-map-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 2147483647; display: flex; }
+    .gebeta-map-overlay > .maplibregl-map { position: relative !important; flex: 1 1 auto; width: 100% !important; height: 100% !important; }
+    .gebeta-map-overlay__close { position: absolute; top: 12px; right: 12px; height: 36px; width: 36px; border-radius: 6px; border: none; background: rgba(0,0,0,0.65); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; z-index: 2147483647; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div id="map"></div>
+    <div class="side-panel">
+      <h3>Fullscreen Popup</h3>
+      <p>Map is intentionally limited to the left. Use the buttons to open a true overlay popup that covers the entire page above all content.</p>
+      <button onclick="openFullscreen()">Open Fullscreen</button>
+      <button onclick="closeFullscreen()">Close Fullscreen</button>
+      <div class="hint">Tip: Press <strong>Esc</strong> or click the × button to exit.</div>
+      <hr>
+      <p>
+        This panel can hold any content you like: forms, details, lists, etc. The
+        overlay will move the map element into a top-level popup and return it here when closed.
+      </p>
+    </div>
+  </div>
+
+  <!-- IMPORTANT: load the gebeta-maps.umd.js file from the tiles.gebeta.app cdn server. -->
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <!-- this is just a utility to load the env for all examples -->
+  <script src="config.js"></script>
+
+<script>
+  let gebetaMap;
+  let map;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const config = loadConfig();
+    const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+
+    gebetaMap = new GebetaMaps({ 
+      apiKey: MY_GEBETA_API_KEY
+    });
+
+    map = gebetaMap.init({
+      container: 'map',
+      center: [38.7685, 9.0161],
+      zoom: 14,
+      // fullscreenControl: false, // Uncomment to hide the built-in control
+    });
+
+    map.on('load', () => {
+      gebetaMap.addNavigationControls();
+    });
+
+    map.on('error', () => {
+      const mapContainer = document.getElementById('map');
+      if (mapContainer) {
+        mapContainer.innerHTML = `<div style="padding: 20px; text-align: center;">
+          <h2>Could not load map style</h2>
+          <p>Please ensure the style server at <code>https://tiles.gebeta.app</code> is reachable.</p>
+        </div>`;
+      }
+    });
+  });
+
+  function openFullscreen() {
+    if (!gebetaMap) return;
+    gebetaMap.openFullscreenPopup();
+  }
+
+  function closeFullscreen() {
+    if (!gebetaMap) return;
+    gebetaMap.closeFullscreenPopup();
+  }
+</script>
+
+</body>
+</html>
+
+
