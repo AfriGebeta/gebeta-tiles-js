@@ -200,6 +200,16 @@ class GebetaMaps {
     return this.fenceManager.getFences();
   }
 
+  getCurrentFenceMarkers() {
+    if (!this.fenceManager) return [];
+    return this.fenceManager.getCurrentFenceMarkers();
+  }
+
+  getAllMarkers() {
+    if (!this.fenceManager) return [];
+    return this.fenceManager.getAllMarkers();
+  }
+
   setFenceOverlay(overlayHtml, options = {}) {
     if (!this.fenceManager) return;
     this.fenceManager.setFenceOverlay(overlayHtml, options);
@@ -218,7 +228,8 @@ class GebetaMaps {
       autoColor = true,
       startHue = 0,
       hueStep = 180,
-      overlayAnchor = 'bottom'
+      overlayAnchor = 'bottom',
+      persistent = false
     } = options;
 
     if (clearExisting) {
@@ -254,10 +265,11 @@ class GebetaMaps {
       const overlayHtml = item.overlayHtml || (item.name
         ? `<div style="padding:4px 8px;background:#fff;border:2px solid ${color};border-radius:6px;font-size:12px;color:#111;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2);transform:translateY(-6px);">${item.name}</div>`
         : null);
-      const firstPointOptions = overlayHtml ? { overlayHtml, overlayOptions: { anchor: overlayAnchor } } : null;
+      const firstPointOptions = overlayHtml ? { overlayHtml, overlayOptions: { anchor: overlayAnchor }, persistent } : { persistent };
 
       item.points.forEach((point, pointIndex) => {
-        this.addFencePoint(point, null, null, color, pointIndex === 0 ? firstPointOptions : null);
+        const opts = pointIndex === 0 ? firstPointOptions : { persistent };
+        this.addFencePoint(point, null, null, color, opts);
       });
 
       if (item.points.length >= 3) {
@@ -313,7 +325,7 @@ class GebetaMaps {
     if (!this.map) return;
 
     // Clear custom markers (only for non-clustered markers)
-    this.markerList.forEach(marker => marker.remove());
+    this.markerList.forEach(marker => marker && marker.remove && marker.remove());
     this.markerList = [];
 
     // Clear clustered markers
@@ -321,7 +333,7 @@ class GebetaMaps {
       this.clusteringManager.clearAllMarkers();
     }
 
-    // Clear fences
+    // Also clear fences' markers and overlays
     if (this.fenceManager) {
       this.fenceManager.clearAllFences();
     }

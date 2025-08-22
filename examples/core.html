@@ -7,6 +7,7 @@
   <!-- IMPORTANT: This css file is required for the map to be displayed correctly. -->
   <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
   <style>
+    html, body { height: 100%; margin: 0; }
     .control-panel {
       position: absolute;
       top: 10px;
@@ -16,11 +17,17 @@
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       z-index: 1000;
-      max-width: 300px;
+      max-width: 320px;
+      max-height: calc(100vh - 20px);
+      overflow: auto;
+      resize: both;
+      color: #000;
+      box-sizing: border-box;
     }
     .control-panel h3 {
       margin: 0 0 10px 0;
       font-size: 16px;
+      color: #000;
     }
     .control-panel button {
       display: block;
@@ -32,28 +39,91 @@
       background: #f8f9fa;
       cursor: pointer;
       font-size: 14px;
-      color: black;
+      color: #000;
+      box-sizing: border-box;
     }
     .control-panel button:hover {
       background: #e9ecef;
     }
-    .control-panel .info {
-      font-size: 12px;
-      color: #666;
-      margin-top: 10px;
-      padding: 8px;
-      background: #f8f9fa;
-      border-radius: 4px;
-    }
     .control-panel .points {
       margin-top: 10px;
-      color: #333;
+      color: #000;
     }
     .control-panel .points ul {
         list-style: none;
         padding: 0;
         margin: 0;
-        color: #333;
+        color: #000;
+    }
+    .control-panel .name-input {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .control-panel .name-input input {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 14px;
+      color: #000;
+      box-sizing: border-box;
+    }
+    .control-panel .inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #000;
+    }
+    .control-panel textarea {
+        width: 100%;
+        margin: 5px 0;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f8f9fa;
+        cursor: text;
+        font-size: 11px;
+        font-family: 'Courier New', monospace;
+        color: #000;
+        resize: vertical;
+        box-sizing: border-box;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    .control-panel textarea:focus {
+        background: white;
+        border-color: #007bff;
+        outline: none;
+    }
+    /* Switch styles */
+    .switch { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+    .switch .switch-label { font-size: 12px; color: #000; }
+    .switch input { height: 0; width: 0; visibility: hidden; }
+    .switch .slider {
+      cursor: pointer; width: 42px; height: 22px; background: #cfcfcf; display: inline-block; border-radius: 999px; position: relative;
+    }
+    .switch .slider::after {
+      content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .switch input:checked + .slider { background: #007bff; }
+    .switch input:checked + .slider::after { transform: translateX(20px); }
+    /* Simple on-map label style */
+    .fence-label {
+      padding: 4px 8px;
+      background: white;
+      border: 2px solid #333;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #111;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      transform: translateY(-6px);
+      pointer-events: none;
     }
   </style>
 </head>
@@ -63,29 +133,38 @@
   <div class="control-panel">
     <h3>Core Features - Fence Drawing</h3>
     <button onclick="addFencePoint()">Add Fence Point (Click Map)</button>
-    <button onclick="addCustomFencePoint()">Add Custom Fence Point</button>
-    <button onclick="addColoredFencePoint()">Add Blue Fence Point</button>
     <button onclick="setGreenDefaultColor()">Set Green Default Color</button>
     <button onclick="resetToRandomColors()">Reset to Random Colors</button>
     <button onclick="clearFence()">Clear Current Fence (C)</button>
     <button onclick="clearAllFences()">Clear All Fences</button>
-          <div class="info">
-        <strong>Instructions:</strong><br>
-        • Click on the map to add fence points<br>
-        • Each new fence gets a random color by default<br>
-        • A colored dashed line follows your cursor while drawing<br>
-        • Click on any existing fence point to close the fence<br>
-        • Add at least 3 points to draw a complete fence<br>
-        • Click outside a completed fence to start a new one<br>
-        • Multiple fences can coexist on the map<br>
-        • Press 'C' to clear the current fence<br>
-        • Custom fence points can have custom images and colors
-      </div>
     <div class="points">
         <strong>Fence Points:</strong><br>
-        <ul id="fence-points-list">
-            <!-- Fence points will be dynamically added here -->
-        </ul>
+        <details open>
+          <summary style="cursor:pointer;">Show/Hide Points</summary>
+          <ul id="fence-points-list">
+              <!-- Fence points will be dynamically added here -->
+          </ul>
+        </details>
+    </div>
+    <div class="name-input">
+      <label for="fence-name-input" style="font-size:12px; color:#555;">Name:</label>
+      <input id="fence-name-input" type="text" placeholder="Fence name (optional)" />
+    </div>
+    <label class="switch" for="fence-persistent">
+      <input type="checkbox" id="fence-persistent" />
+      <span class="slider"></span>
+      <span class="switch-label">Persistent (keep when new fence starts)</span>
+    </label>
+    <div style="margin: 10px 0;">
+        <label for="pathsInput" style="display: block; margin-bottom: 5px; font-size: 12px;">Enter paths (JSON):</label>
+        <textarea id="pathsInput" rows="4" placeholder='Examples:\n1) Array of paths: [ [ [lng,lat], ... ], [ [lng,lat], ... ] ]\n2) Named paths: [ {"name":"Zone A", "points": [ [lng,lat], ... ]}, {"name":"Zone B", "points": [...] } ]'></textarea>
+        <button onclick="renderMultiplePaths()" style="margin-top: 5px;">Render Paths as Fences</button>
+        <button onclick="loadSamplePaths()" style="margin-top: 5px; margin-left: 5px;">Load Sample (with names)</button>
+        <label class="switch" for="paths-persistent">
+          <input type="checkbox" id="paths-persistent" />
+          <span class="slider"></span>
+          <span class="switch-label">Persistent when rendering paths</span>
+        </label>
     </div>
   </div>
 
@@ -101,6 +180,7 @@
     let fencePoints = [];
     let useRandomColors = true; // Default to random colors
     let currentFenceColor = null; // Track current fence color
+    // Labels are now handled by FenceManager overlays
 
     document.addEventListener('DOMContentLoaded', () => {
         const config = loadConfig();
@@ -123,47 +203,12 @@
         gebetaMap.on('click', (e) => {
             const lngLat = [e.lngLat.lng, e.lngLat.lat];
             
-            // If we have a completed fence and click is outside, clear everything and start fresh
-            if (gebetaMap.isFenceCompleted() && !gebetaMap.isPointInsideFence(lngLat)) {
-                console.log('Clearing old fence and markers...');
-                
-                // Clear the current fence
-                gebetaMap.clearFence();
-                
-                // Clear all markers using the built-in method
-                gebetaMap.clearAllMarkers();
-                
-                // Reset the fence points array and UI
+            // If a fence is completed, always start a new one in the UI list as well
+            if (gebetaMap.isFenceCompleted()) {
                 fencePoints = [];
                 const fencePointsList = document.getElementById('fence-points-list');
-                if (fencePointsList) {
-                    fencePointsList.innerHTML = '';
-                    console.log('Cleared fence points list');
-                }
-                
-                // Generate new random color for the new fence if random colors are enabled
-                if (useRandomColors) {
-                    currentFenceColor = generateRandomColor();
-                    console.log('Generated new random color for fence:', currentFenceColor);
-                }
-                
-                // Reset the info panel
-                const infoPanel = document.querySelector('.info');
-                if (infoPanel) {
-                    infoPanel.innerHTML = `
-                        <strong>Instructions:</strong><br>
-                        • Click on the map to add fence points<br>
-                        • Each new fence gets a random color by default<br>
-                        • A colored dashed line follows your cursor while drawing<br>
-                        • Click on any existing fence point to close the fence<br>
-                        • Add at least 3 points to draw a complete fence<br>
-                        • Click outside a completed fence to start a new one<br>
-                        • Press 'C' to clear the current fence<br>
-                        • Custom fence points can have custom images and colors
-                    `;
-                }
-                
-                console.log('Cleared old fence and markers, starting new fence');
+                if (fencePointsList) fencePointsList.innerHTML = '';
+                if (useRandomColors) currentFenceColor = generateRandomColor();
             }
             
             // Generate color for first fence if random colors are enabled and no color is set yet
@@ -173,7 +218,17 @@
             }
             
             // Add the fence point (this will be the first point of the new fence if we just cleared)
-            gebetaMap.addFencePoint(lngLat, null, null, currentFenceColor);
+            const nameInput = document.getElementById('fence-name-input');
+            const fenceName = nameInput && nameInput.value ? nameInput.value : '';
+            const persistent = !!document.getElementById('fence-persistent').checked;
+            const overlayHtml = fenceName
+                ? `<div style="padding:4px 8px;background:#fff;border:2px solid ${currentFenceColor || '#333'};border-radius:6px;font-size:12px;color:#111;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2);transform:translateY(-6px);">${fenceName}</div>`
+                : null;
+            const isFirstPoint = fencePoints.length === 0;
+            const options = isFirstPoint
+                ? (overlayHtml ? { overlayHtml, overlayOptions: { anchor: 'bottom' }, persistent } : { persistent })
+                : { persistent };
+            gebetaMap.addFencePoint(lngLat, null, null, currentFenceColor, options);
             fencePoints.push(lngLat)
 
             console.log('Added fence point:', lngLat);
@@ -184,35 +239,7 @@
                 listItem.textContent = `Point ${fencePoints.length}: [${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}]`;
                 fencePointsList.appendChild(listItem);
             }
-            // Check if fence is completed after adding the point
-            if (gebetaMap.isFenceCompleted()) {
-                console.log('🎉 Fence completed!');
-                // add info about fence completion
-                const fencePointList = document.getElementById('fence-points-list');
-                if (fencePointList) {
-                  const paragraph = document.createElement('p');
-                    paragraph.textContent = `Fence completed with ${fencePoints.length} points.`;
-                    fencePointList.appendChild(paragraph);
-                }
-                
-                // Update the info panel to show completion
-                const infoPanel = document.querySelector('.info');
-                if (infoPanel) {
-                    infoPanel.innerHTML = `
-                        <strong>✅ Fence Completed!</strong><br>
-                        • Click outside the fence to start a new one<br>
-                        • Press 'C' to clear the current fence<br>
-                        • Add at least 3 points to draw a complete fence
-                    `;
-                }
-                
-                // You can add any custom logic here when fence is completed
-                // For example:
-                // - Save the fence coordinates to a database
-                // - Enable other UI controls
-                // - Trigger analytics events
-                // - etc.
-            }
+            // Nothing else needed here on completion; manager handles overlays and lifecycle
         });
 
         document.addEventListener('keydown', (e) => {
@@ -237,41 +264,7 @@
         console.log('Click on the map to add fence points');
     }
 
-    function addCustomFencePoint() {
-        if (!gebetaMap) return;
-        
-        // Add a fence point with custom image and click handler
-        const customImage = 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png';
-        gebetaMap.addFencePoint(
-            [38.7650, 9.0140],
-            customImage,
-
-            (lngLat, marker, event) => {
-                console.log('Custom fence point clicked:', lngLat);
-                alert(`Custom fence point at: ${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}`);
-            }
-        );
-        
-        console.log('Added custom fence point with click handler');
-    }
-
-    function addColoredFencePoint() {
-        if (!gebetaMap) return;
-        
-        // Add a fence point with a custom color (blue)
-        const customImage = 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png';
-        gebetaMap.addFencePoint(
-            [38.7700, 9.0200],
-            customImage,
-            (lngLat, marker, event) => {
-                console.log('Blue fence point clicked:', lngLat);
-                alert(`Blue fence point at: ${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}`);
-            },
-            '#0066cc' // Blue color
-        );
-        
-        console.log('Added blue fence point');
-    }
+    // Removed extra demo marker buttons to simplify the UI
 
     function setGreenDefaultColor() {
         if (!gebetaMap) return;
@@ -309,6 +302,8 @@
         if (!gebetaMap) return;
         gebetaMap.clearFence();
         console.log('Fence cleared');
+
+        // Overlays are cleared by fence utilities
         
         // Reset the info panel
         const infoPanel = document.querySelector('.info');
@@ -331,6 +326,8 @@
         if (!gebetaMap) return;
         gebetaMap.clearAllFences();
         console.log('All fences cleared');
+
+        // Overlays are cleared by fence utilities
         
         // Reset the info panel
         const infoPanel = document.querySelector('.info');
@@ -349,6 +346,76 @@
             `;
         }
     }
+
+    // Multi-path rendering with optional names and overlays
+    function renderMultiplePaths() {
+        if (!gebetaMap) return;
+        const inputEl = document.getElementById('pathsInput');
+        const text = inputEl.value.trim();
+        if (!text) {
+            alert('Please enter paths in the text area.');
+            return;
+        }
+        let paths;
+        try {
+            paths = JSON.parse(text);
+        } catch (e) {
+            alert('Invalid JSON.');
+            return;
+        }
+        // Render via built-in helper
+        const persistent = !!document.getElementById('paths-persistent').checked;
+        gebetaMap.renderFencesFromArray(paths, { clearExisting: true, autoColor: true, hueStep: 180, overlayAnchor: 'bottom', persistent });
+
+        // Populate the points list UI
+        const fencePointsList = document.getElementById('fence-points-list');
+        if (fencePointsList) {
+            fencePointsList.innerHTML = '';
+            (Array.isArray(paths) ? paths : []).forEach((item, idx) => {
+                const name = (item && item.name) ? item.name : `Path ${idx + 1}`;
+                const pts = Array.isArray(item) ? item : (item && Array.isArray(item.points) ? item.points : []);
+                const header = document.createElement('li');
+                header.innerHTML = `<strong>${name} (${pts.length} points)</strong>`;
+                fencePointsList.appendChild(header);
+                pts.forEach((p, i) => {
+                    const li = document.createElement('li');
+                    li.textContent = `  Point ${i + 1}: [${p[1].toFixed(4)}, ${p[0].toFixed(4)}]`;
+                    fencePointsList.appendChild(li);
+                });
+            });
+        }
+    }
+
+    function loadSamplePaths() {
+        const sample = [
+            { name: 'Zone A', points: [ [38.844317557306,9.038652398071], [38.844735981912,9.0368458417574], [38.845487000436,9.0357862737222], [38.84822821805,9.0361253358325], [38.847984137029,9.0387464651468] ] },
+            { name: 'Zone B', points: [ [38.719653382914,8.9697856689243], [38.715812459605,8.9671574472011], [38.702487245219,8.9739929035992], [38.702487245219,8.9791114633748], [38.70528747143,8.9813792907801], [38.71154771461,8.9811699458284], [38.71432648315,8.9800360332441], [38.71827469482,8.9761573895587], [38.721815210719,8.9735080189377], [38.719669443507,8.9696822936261] ] }
+        ];
+        const inputEl = document.getElementById('pathsInput');
+        inputEl.value = JSON.stringify(sample, null, 2);
+        // Use the new helper to render
+        const persistent = !!document.getElementById('paths-persistent').checked;
+        gebetaMap.renderFencesFromArray(sample, { clearExisting: true, autoColor: true, hueStep: 180, overlayAnchor: 'bottom', persistent });
+
+        // Update UI list
+        const fencePointsList = document.getElementById('fence-points-list');
+        if (fencePointsList) {
+            fencePointsList.innerHTML = '';
+            sample.forEach((item, idx) => {
+                const name = item.name || `Path ${idx + 1}`;
+                const header = document.createElement('li');
+                header.innerHTML = `<strong>${name} (${item.points.length} points)</strong>`;
+                fencePointsList.appendChild(header);
+                item.points.forEach((p, i) => {
+                    const li = document.createElement('li');
+                    li.textContent = `  Point ${i + 1}: [${p[1].toFixed(4)}, ${p[0].toFixed(4)}]`;
+                    fencePointsList.appendChild(li);
+                });
+            });
+        }
+    }
+
+    // No local label utilities needed; overlays handled by FenceManager
 </script>
 
 </body>

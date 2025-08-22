@@ -16,6 +16,7 @@ class FenceManager {
     this.currentFenceOverlayHtml = null;
     this.currentFenceOverlayOptions = {};
     this.currentFenceOverlayMarker = null;
+    this.currentFencePersistent = false;
     
     // Controls whether proximity to the first point should auto-close the fence
     this.disableProximityClosure = false;
@@ -39,8 +40,9 @@ class FenceManager {
       this.currentFenceColor = color;
     }
 
-    // If we have a completed fence and click is outside, start a new fence
-    if (this.isFenceCompleted() && !this.isPointInsideFence(lngLat)) {
+    // If we have a completed fence, start a new fence regardless of click location
+    // This allows beginning a new fence anywhere on the map after completing one
+    if (this.isFenceCompleted()) {
       this.startNewFence();
     }
 
@@ -62,9 +64,26 @@ class FenceManager {
       this.currentFenceOverlayHtml = options.overlayHtml;
       this.currentFenceOverlayOptions = options.overlayOptions || {};
     }
+    // If options specify persistence for this fence
+    if (options && typeof options.persistent === 'boolean') {
+      this.currentFencePersistent = options.persistent;
+    }
     
     const markerImage = customImage || 'https://cdn-icons-png.flaticon.com/512/484/484167.png';
-    const markerResult = addImageMarkerCallback(lngLat, markerImage, [30, 30], onClick);
+    // Wrap user click to allow closing when first marker is clicked
+    const userOnClick = onClick;
+    const wrappedOnClick = (clickLngLat, marker, event) => {
+      if (!this.clusteringEnabled && this.isDrawingFence && this.isClickOnFirstFencePoint(clickLngLat)) {
+        // Append first point and close
+        this.fencePoints.push([this.fencePoints[0][0], this.fencePoints[0][1]]);
+        this.closeFence();
+        return;
+      }
+      if (typeof userOnClick === 'function') {
+        try { userOnClick(clickLngLat, marker, event); } catch (_) {}
+      }
+    };
+    const markerResult = addImageMarkerCallback(lngLat, markerImage, [30, 30], wrappedOnClick);
     
     // Store fence markers separately (only for non-clustered markers)
     if (!this.clusteringEnabled) {
@@ -174,6 +193,11 @@ class FenceManager {
     if (this.currentFenceOverlayHtml) {
       this._placeOverlayForCurrentFence();
     }
+
+    // If this fence is marked persistent, store it immediately so the next click starts fresh
+    if (this.currentFencePersistent) {
+      this.storeCurrentFence();
+    }
   }
 
   startNewFence() {
@@ -188,19 +212,34 @@ class FenceManager {
         return isClosed ? [...fp] : [...fp, [f[0], f[1]]];
       })();
 
-      const completedFence = {
-        id: this.currentFenceId++,
-        points: pointsToStore,
-        markers: [...this.fenceMarkerList],
-        color: this.currentFenceColor,
-        sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
-        layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
-        overlayHtml: this.currentFenceOverlayHtml,
-        overlayOptions: { ...this.currentFenceOverlayOptions },
-        overlayMarker: this.currentFenceOverlayMarker || null
-      };
-      
-      this.fences.push(completedFence);
+      // Before starting a new fence, clear all non-persistent previous fences
+      this.clearNonPersistentFences();
+
+      // Store current fence only if marked persistent; otherwise it will be cleared
+      if (this.currentFencePersistent) {
+        const completedFence = {
+          id: this.currentFenceId++,
+          points: pointsToStore,
+          markers: [...this.fenceMarkerList],
+          color: this.currentFenceColor,
+          sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
+          layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
+          overlayHtml: this.currentFenceOverlayHtml,
+          overlayOptions: { ...this.currentFenceOverlayOptions },
+          overlayMarker: this.currentFenceOverlayMarker || null,
+          persistent: true
+        };
+        this.fences.push(completedFence);
+      } else {
+        // Not persistent: remove current fence markers and overlay from the map
+        if (!this.clusteringEnabled) {
+          this.fenceMarkerList.forEach(marker => marker && marker.remove && marker.remove());
+        }
+        if (this.currentFenceOverlayMarker) {
+          this.currentFenceOverlayMarker.remove();
+          this.currentFenceOverlayMarker = null;
+        }
+      }
       
       // Clear current fence state but keep the stored fence visible
       this.fencePoints = [];
@@ -221,30 +260,28 @@ class FenceManager {
       }
       this.currentFenceOverlayHtml = null;
       this.currentFenceOverlayOptions = {};
+      this.currentFencePersistent = false;
       
       // Redraw all fences to ensure they're all visible
       this.drawAllFences();
       
-      console.debug(`Fence ${completedFence.id} stored. Total fences: ${this.fences.length}`);
+      console.debug(`Start new fence. Persistent fences count: ${this.fences.length}`);
     }
   }
 
   clearFence() {
     if (!this.map) return;
 
-    this.fencePoints = [];
+    // Remove current fence markers (only for non-clustered markers)
+    if (!this.clusteringEnabled) {
+      this.fenceMarkerList.forEach(marker => marker && marker.remove && marker.remove());
+    }
     this.fenceMarkerList = [];
 
     // Only remove current fence source/layer if it exists
     if (this.map.getSource(this.fenceSourceId)) {
-      this.map.removeLayer(this.fenceLayerId);
+      if (this.map.getLayer(this.fenceLayerId)) this.map.removeLayer(this.fenceLayerId);
       this.map.removeSource(this.fenceSourceId);
-    }
-
-    // Clear current fence markers (only for non-clustered markers)
-    if (!this.clusteringEnabled) {
-      this.fenceMarkerList.forEach(marker => marker.remove());
-      this.fenceMarkerList = [];
     }
 
     // Stop drawing mode and remove dynamic polyline
@@ -257,6 +294,9 @@ class FenceManager {
     }
     this.currentFenceOverlayHtml = null;
     this.currentFenceOverlayOptions = {};
+
+    // Finally reset points
+    this.fencePoints = [];
   }
 
   clearAllFences() {
@@ -288,6 +328,31 @@ class FenceManager {
     this.currentFenceId = 0;
     
     console.debug('All fences cleared');
+  }
+
+  // Remove all non-persistent stored fences (layers, sources, markers, overlays)
+  clearNonPersistentFences() {
+    if (!this.map) return;
+
+    const remaining = [];
+    this.fences.forEach(fence => {
+      if (fence.persistent) {
+        remaining.push(fence);
+        return;
+      }
+      if (this.map.getSource(fence.sourceId)) {
+        if (this.map.getLayer(fence.layerId)) this.map.removeLayer(fence.layerId);
+        this.map.removeSource(fence.sourceId);
+      }
+      if (!this.clusteringEnabled && Array.isArray(fence.markers)) {
+        fence.markers.forEach(marker => marker && marker.remove && marker.remove());
+      }
+      if (fence.overlayMarker) {
+        fence.overlayMarker.remove();
+        fence.overlayMarker = null;
+      }
+    });
+    this.fences = remaining;
   }
 
   drawFence() {
@@ -468,6 +533,21 @@ class FenceManager {
     return this.fences;
   }
 
+  // Expose markers for current fence and stored fences
+  getCurrentFenceMarkers() {
+    return [...this.fenceMarkerList];
+  }
+
+  getAllMarkers() {
+    const markers = [...this.fenceMarkerList];
+    this.fences.forEach(f => {
+      if (Array.isArray(f.markers)) {
+        f.markers.forEach(m => markers.push(m));
+      }
+    });
+    return markers;
+  }
+
   // Public API: set an HTML overlay for the current fence. If the fence is already completed,
   // the overlay will be placed immediately; otherwise it will be placed on fence close.
   setFenceOverlay(overlayHtml, options = {}) {
@@ -516,7 +596,8 @@ class FenceManager {
       layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
       overlayHtml: this.currentFenceOverlayHtml,
       overlayOptions: { ...this.currentFenceOverlayOptions },
-      overlayMarker: this.currentFenceOverlayMarker || null
+      overlayMarker: this.currentFenceOverlayMarker || null,
+      persistent: !!this.currentFencePersistent
     };
 
     this.fences.push(completedFence);
@@ -530,6 +611,7 @@ class FenceManager {
     }
     this.currentFenceOverlayHtml = null;
     this.currentFenceOverlayOptions = {};
+    this.currentFencePersistent = false;
 
     // Redraw everything and ensure overlay marker is placed for the stored fence
     this.drawAllFences();
