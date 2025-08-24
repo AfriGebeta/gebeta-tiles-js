@@ -30,6 +30,37 @@ class FenceManager {
     this.fenceLayerId = 'fence-fill';
     this.dynamicPolylineSourceId = 'dynamic-fence';
     this.dynamicPolylineLayerId = 'dynamic-fence-line';
+    
+    // Event listeners
+    this.eventListeners = {
+      'fenceCompleted': []
+    };
+  }
+  
+  // Add event listener
+  on(event, callback) {
+    if (!this.eventListeners[event]) {
+      this.eventListeners[event] = [];
+    }
+    this.eventListeners[event].push(callback);
+  }
+  
+  // Remove event listener
+  off(event, callback) {
+    if (!this.eventListeners[event]) return;
+    this.eventListeners[event] = this.eventListeners[event].filter(cb => cb !== callback);
+  }
+  
+  // Trigger event
+  trigger(event, data) {
+    if (!this.eventListeners[event]) return;
+    this.eventListeners[event].forEach(callback => {
+      try {
+        callback(data);
+      } catch (e) {
+        console.error('Error in event listener:', e);
+      }
+    });
   }
 
   addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null, options = null) {
@@ -48,7 +79,9 @@ class FenceManager {
 
     // If clicking on the first point, close the fence (unless disabled via flag/options)
     const suppressAutoClose = (options && options.suppressAutoClose) || this.disableProximityClosure;
-    if (!suppressAutoClose && this.isDrawingFence && this.isClickOnFirstFencePoint(lngLat)) {
+    const isOnFirstPoint = this.isDrawingFence && this.isClickOnFirstFencePoint(lngLat);
+    
+    if (!suppressAutoClose && isOnFirstPoint) {
       // Add the first point as a new point to close the fence
       // Use the exact same coordinate format as the first point
       this.fencePoints.push([this.fencePoints[0][0], this.fencePoints[0][1]]);
@@ -73,7 +106,9 @@ class FenceManager {
     // Wrap user click to allow closing when first marker is clicked
     const userOnClick = onClick;
     const wrappedOnClick = (clickLngLat, marker, event) => {
-      if (!this.clusteringEnabled && this.isDrawingFence && this.isClickOnFirstFencePoint(clickLngLat)) {
+      const isOnFirstPoint = !this.clusteringEnabled && this.isDrawingFence && this.isClickOnFirstFencePoint(clickLngLat);
+      
+      if (isOnFirstPoint) {
         // Append first point and close
         this.fencePoints.push([this.fencePoints[0][0], this.fencePoints[0][1]]);
         this.closeFence();
@@ -198,6 +233,16 @@ class FenceManager {
     if (this.currentFencePersistent) {
       this.storeCurrentFence();
     }
+    
+    // Ensure we trigger a proper fence completion state
+    this.isDrawingFence = false;
+    
+    // Trigger the fenceCompleted event
+    this.trigger('fenceCompleted', {
+      points: [...this.fencePoints],
+      color: this.currentFenceColor,
+      persistent: this.currentFencePersistent
+    });
   }
 
   startNewFence() {

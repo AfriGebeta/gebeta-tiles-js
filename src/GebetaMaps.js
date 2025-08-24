@@ -66,20 +66,20 @@ class GebetaMaps {
     this.addGebetaLogo();
     this.addCustomAttribution();
 
+    // Initialize fence manager immediately so event listeners can be registered
+    this.initFenceManager();
+
     // Add fullscreen control by default (can be disabled with options.fullscreenControl = false)
     if (!options || options.fullscreenControl !== false) {
       try { this.addFullscreenPopupControl(); } catch (e) {}
     }
 
-    // Initialize managers after map loads
+    // Initialize remaining managers after map loads
     this.map.on('load', () => {
       // Initialize clustering if enabled
       if (this.clustering.enabled) {
         this.initClustering();
       }
-      
-      // Initialize fence manager
-      this.initFenceManager();
 
       // Initialize directions manager
       this.initDirectionsManager();
@@ -96,6 +96,14 @@ class GebetaMaps {
   initFenceManager(defaultColor = '#ff0000') {
     if (!this.map) return;
     this.fenceManager = new FenceManager(this.map, this.clustering.enabled, defaultColor);
+    
+    // Register any pending event handlers
+    if (this._pendingEventHandlers && this._pendingEventHandlers.fenceCompleted) {
+      this._pendingEventHandlers.fenceCompleted.forEach(handler => {
+        this.fenceManager.on('fenceCompleted', handler);
+      });
+      this._pendingEventHandlers.fenceCompleted = [];
+    }
   }
 
   setFenceDefaultColor(color) {
@@ -110,6 +118,21 @@ class GebetaMaps {
   }
 
   on(event, handler) {
+    // Special case for fence events - can be registered even before map init
+    if (event === 'fenceCompleted') {
+      // If fence manager isn't initialized yet, store the handler to register later
+      if (!this.fenceManager) {
+        if (!this._pendingEventHandlers) {
+          this._pendingEventHandlers = { fenceCompleted: [] };
+        }
+        this._pendingEventHandlers.fenceCompleted.push(handler);
+      } else {
+        this.fenceManager.on(event, handler);
+      }
+      return;
+    }
+    
+    // For map events, require map to be initialized
     if (!this.map) throw new Error("Map not initialized. Call init() first.");
     this.map.on(event, handler);
   }

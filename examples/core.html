@@ -189,6 +189,15 @@
         gebetaMap = new GebetaMaps({ 
             apiKey: MY_GEBETA_API_KEY
         });
+        
+        // Register the fence completed event
+        gebetaMap.on('fenceCompleted', (data) => {
+            console.log('Fence completed!');
+            fencePoints = [];
+            const fencePointsList = document.getElementById('fence-points-list');
+            if (fencePointsList) fencePointsList.innerHTML = '';
+            if (useRandomColors) currentFenceColor = generateRandomColor();
+        });
 
         map = gebetaMap.init({
             container: 'map',
@@ -203,18 +212,19 @@
         gebetaMap.on('click', (e) => {
             const lngLat = [e.lngLat.lng, e.lngLat.lat];
             
-            // If a fence is completed, always start a new one in the UI list as well
-            if (gebetaMap.isFenceCompleted()) {
-                fencePoints = [];
-                const fencePointsList = document.getElementById('fence-points-list');
-                if (fencePointsList) fencePointsList.innerHTML = '';
-                if (useRandomColors) currentFenceColor = generateRandomColor();
-            }
-            
             // Generate color for first fence if random colors are enabled and no color is set yet
             if (useRandomColors && currentFenceColor === null && fencePoints.length === 0) {
                 currentFenceColor = generateRandomColor();
                 console.log('Generated first random color for fence:', currentFenceColor);
+            }
+            
+            // If a fence is completed, always start a new one in the UI list as well
+            if (gebetaMap.isFenceCompleted()) {
+                console.log('Fence completed (detected in click handler)', gebetaMap.isFenceCompleted());
+                fencePoints = [];
+                const fencePointsList = document.getElementById('fence-points-list');
+                if (fencePointsList) fencePointsList.innerHTML = '';
+                if (useRandomColors) currentFenceColor = generateRandomColor();
             }
             
             // Add the fence point (this will be the first point of the new fence if we just cleared)
@@ -228,8 +238,9 @@
             const options = isFirstPoint
                 ? (overlayHtml ? { overlayHtml, overlayOptions: { anchor: 'bottom' }, persistent } : { persistent })
                 : { persistent };
+                
             gebetaMap.addFencePoint(lngLat, null, null, currentFenceColor, options);
-            fencePoints.push(lngLat)
+            fencePoints.push(lngLat);
 
             console.log('Added fence point:', lngLat);
             // Update the fence points list in the control panel
@@ -239,7 +250,6 @@
                 listItem.textContent = `Point ${fencePoints.length}: [${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}]`;
                 fencePointsList.appendChild(listItem);
             }
-            // Nothing else needed here on completion; manager handles overlays and lifecycle
         });
 
         document.addEventListener('keydown', (e) => {
