@@ -28,6 +28,7 @@ class FenceManager {
     // Source and layer IDs
     this.fenceSourceId = 'fence';
     this.fenceLayerId = 'fence-fill';
+    this.fenceBorderLayerId = 'fence-border';
     this.dynamicPolylineSourceId = 'dynamic-fence';
     this.dynamicPolylineLayerId = 'dynamic-fence-line';
     
@@ -35,6 +36,22 @@ class FenceManager {
     this.eventListeners = {
       'fenceCompleted': []
     };
+
+    // Style management
+    this.currentFenceStyle = {
+      fillColor: this.defaultColor,
+      fillOpacity: 0.3,
+      lineColor: this.defaultColor,
+      lineWidth: 2,
+      lineOpacity: 1,
+      lineDashArray: [2, 2],
+      lineCap: 'butt',
+      lineJoin: 'miter',
+      borderColor: this.defaultColor,
+      borderWidth: 1,
+      borderOpacity: 1
+    };
+    this.defaultFenceStyle = { ...this.currentFenceStyle };
   }
   
   // Add event listener
@@ -61,6 +78,119 @@ class FenceManager {
         console.error('Error in event listener:', e);
       }
     });
+  }
+
+  // Style management methods
+  setFenceStyle(styleOptions) {
+    if (!styleOptions || typeof styleOptions !== 'object') return;
+    
+    // Update current fence style
+    this.currentFenceStyle = { ...this.currentFenceStyle, ...styleOptions };
+    
+    // Update default style for future fences
+    this.defaultFenceStyle = { ...this.defaultFenceStyle, ...styleOptions };
+    
+    // Update current fence if it exists
+    if (this.fencePoints.length >= 3) {
+      this.updateCurrentFenceStyle();
+    }
+  }
+
+  setFenceFillColor(color) {
+    this.setFenceStyle({ fillColor: color });
+  }
+
+  setFenceFillOpacity(opacity) {
+    this.setFenceStyle({ fillOpacity: Math.max(0, Math.min(1, opacity)) });
+  }
+
+  setFenceLineColor(color) {
+    this.setFenceStyle({ lineColor: color });
+  }
+
+  setFenceLineWidth(width) {
+    this.setFenceStyle({ lineWidth: Math.max(0, width) });
+  }
+
+  setFenceLineOpacity(opacity) {
+    this.setFenceStyle({ lineOpacity: Math.max(0, Math.min(1, opacity)) });
+  }
+
+  setFenceLineDashArray(dashArray) {
+    this.setFenceStyle({ lineDashArray: Array.isArray(dashArray) ? dashArray : [2, 2] });
+  }
+
+  setFenceLineCap(cap) {
+    const validCaps = ['butt', 'round', 'square'];
+    if (validCaps.includes(cap)) {
+      this.setFenceStyle({ lineCap: cap });
+    }
+  }
+
+  setFenceLineJoin(join) {
+    const validJoins = ['bevel', 'round', 'miter'];
+    if (validJoins.includes(join)) {
+      this.setFenceStyle({ lineJoin: join });
+    }
+  }
+
+  setFenceBorderColor(color) {
+    this.setFenceStyle({ borderColor: color });
+  }
+
+  setFenceBorderWidth(width) {
+    this.setFenceStyle({ borderWidth: Math.max(0, width) });
+  }
+
+  setFenceBorderOpacity(opacity) {
+    this.setFenceStyle({ borderOpacity: Math.max(0, Math.min(1, opacity)) });
+  }
+
+  getFenceStyle() {
+    return { ...this.currentFenceStyle };
+  }
+
+  getDefaultFenceStyle() {
+    return { ...this.defaultFenceStyle };
+  }
+
+  resetFenceStyle() {
+    this.currentFenceStyle = { ...this.defaultFenceStyle };
+    if (this.fencePoints.length >= 3) {
+      this.updateCurrentFenceStyle();
+    }
+  }
+
+  updateCurrentFenceStyle() {
+    if (!this.map || this.fencePoints.length < 3) return;
+    
+    // Update fill layer
+    if (this.map.getLayer(this.fenceLayerId)) {
+      this.map.setPaintProperty(this.fenceLayerId, 'fill-color', this.currentFenceStyle.fillColor);
+      this.map.setPaintProperty(this.fenceLayerId, 'fill-opacity', this.currentFenceStyle.fillOpacity);
+    }
+    
+    // Update border layer if it exists
+    if (this.map.getLayer(this.fenceBorderLayerId)) {
+      this.map.setPaintProperty(this.fenceBorderLayerId, 'line-color', this.currentFenceStyle.borderColor);
+      this.map.setPaintProperty(this.fenceBorderLayerId, 'line-width', this.currentFenceStyle.borderWidth);
+      this.map.setPaintProperty(this.fenceBorderLayerId, 'line-opacity', this.currentFenceStyle.borderOpacity);
+    }
+    
+    // Update dynamic polyline if drawing
+    if (this.isDrawingFence && this.map.getLayer(this.dynamicPolylineLayerId)) {
+      this.map.setPaintProperty(this.dynamicPolylineLayerId, 'line-color', this.currentFenceStyle.lineColor);
+      this.map.setPaintProperty(this.dynamicPolylineLayerId, 'line-width', this.currentFenceStyle.lineWidth);
+      this.map.setPaintProperty(this.dynamicPolylineLayerId, 'line-opacity', this.currentFenceStyle.lineOpacity);
+      if (Array.isArray(this.currentFenceStyle.lineDashArray) && this.currentFenceStyle.lineDashArray.length) {
+        this.map.setPaintProperty(this.dynamicPolylineLayerId, 'line-dasharray', this.currentFenceStyle.lineDashArray);
+      } else {
+        // Clear dash array if previously set
+        try { this.map.setPaintProperty(this.dynamicPolylineLayerId, 'line-dasharray', null); } catch (_) {}
+      }
+      this.map.setLayoutProperty(this.dynamicPolylineLayerId, 'line-cap', this.currentFenceStyle.lineCap);
+      this.map.setLayoutProperty(this.dynamicPolylineLayerId, 'line-join', this.currentFenceStyle.lineJoin);
+    }
   }
 
   addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null, options = null) {
@@ -157,10 +287,17 @@ class FenceManager {
       id: this.dynamicPolylineLayerId,
       type: 'line',
       source: this.dynamicPolylineSourceId,
+      layout: {
+        'line-cap': this.currentFenceStyle.lineCap,
+        'line-join': this.currentFenceStyle.lineJoin
+      },
       paint: {
-        'line-color': this.currentFenceColor,
-        'line-width': 2,
-        'line-dasharray': [2, 2]
+        'line-color': this.currentFenceStyle.lineColor,
+        'line-width': this.currentFenceStyle.lineWidth,
+        'line-opacity': this.currentFenceStyle.lineOpacity,
+        ...(Array.isArray(this.currentFenceStyle.lineDashArray) && this.currentFenceStyle.lineDashArray.length
+          ? { 'line-dasharray': this.currentFenceStyle.lineDashArray }
+          : {})
       }
     });
 
@@ -272,7 +409,8 @@ class FenceManager {
           overlayHtml: this.currentFenceOverlayHtml,
           overlayOptions: { ...this.currentFenceOverlayOptions },
           overlayMarker: this.currentFenceOverlayMarker || null,
-          persistent: true
+          persistent: true,
+          style: { ...this.currentFenceStyle }
         };
         this.fences.push(completedFence);
       } else {
@@ -294,6 +432,7 @@ class FenceManager {
 
       // Remove the transient current-fence source/layer to avoid duplicates
       if (this.map.getSource(this.fenceSourceId)) {
+        if (this.map.getLayer(this.fenceBorderLayerId)) this.map.removeLayer(this.fenceBorderLayerId);
         if (this.map.getLayer(this.fenceLayerId)) this.map.removeLayer(this.fenceLayerId);
         this.map.removeSource(this.fenceSourceId);
       }
@@ -325,6 +464,7 @@ class FenceManager {
 
     // Only remove current fence source/layer if it exists
     if (this.map.getSource(this.fenceSourceId)) {
+      if (this.map.getLayer(this.fenceBorderLayerId)) this.map.removeLayer(this.fenceBorderLayerId);
       if (this.map.getLayer(this.fenceLayerId)) this.map.removeLayer(this.fenceLayerId);
       this.map.removeSource(this.fenceSourceId);
     }
@@ -353,6 +493,9 @@ class FenceManager {
     // Clear all stored fences
     this.fences.forEach(fence => {
       if (this.map.getSource(fence.sourceId)) {
+        // Remove border layer if it exists
+        const borderLayerId = `${fence.layerId}-border`;
+        if (this.map.getLayer(borderLayerId)) this.map.removeLayer(borderLayerId);
         this.map.removeLayer(fence.layerId);
         this.map.removeSource(fence.sourceId);
       }
@@ -386,6 +529,9 @@ class FenceManager {
         return;
       }
       if (this.map.getSource(fence.sourceId)) {
+        // Remove border layer if it exists
+        const borderLayerId = `${fence.layerId}-border`;
+        if (this.map.getLayer(borderLayerId)) this.map.removeLayer(borderLayerId);
         if (this.map.getLayer(fence.layerId)) this.map.removeLayer(fence.layerId);
         this.map.removeSource(fence.sourceId);
       }
@@ -427,16 +573,33 @@ class FenceManager {
         data: geojson,
       });
 
+      // Add fill layer
       this.map.addLayer({
         id: this.fenceLayerId,
         type: 'fill',
         source: this.fenceSourceId,
         layout: {},
         paint: {
-          'fill-color': this.currentFenceColor,
-          'fill-opacity': 0.3,
+          'fill-color': this.currentFenceStyle.fillColor,
+          'fill-opacity': this.currentFenceStyle.fillOpacity,
         },
       });
+
+      // Add border layer
+      this.map.addLayer({
+        id: this.fenceBorderLayerId,
+        type: 'line',
+        source: this.fenceSourceId,
+        layout: {
+          'line-cap': this.currentFenceStyle.lineCap,
+          'line-join': this.currentFenceStyle.lineJoin
+        },
+        paint: {
+          'line-color': this.currentFenceStyle.borderColor,
+          'line-width': this.currentFenceStyle.borderWidth,
+          'line-opacity': this.currentFenceStyle.borderOpacity
+        },
+      }, this.fenceLayerId); // Insert border layer after fill layer
     }
   }
 
@@ -479,16 +642,35 @@ class FenceManager {
         data: geojson,
       });
 
+      // Add fill layer
+      const style = fence.style || {};
       this.map.addLayer({
         id: fence.layerId,
         type: 'fill',
         source: fence.sourceId,
         layout: {},
         paint: {
-          'fill-color': fence.color || this.defaultColor,
-          'fill-opacity': 0.3,
+          'fill-color': style.fillColor || fence.color || this.defaultFenceStyle.fillColor,
+          'fill-opacity': style.fillOpacity !== undefined ? style.fillOpacity : this.defaultFenceStyle.fillOpacity,
         },
       });
+
+      // Add border layer for stored fences
+      const borderLayerId = `${fence.layerId}-border`;
+      this.map.addLayer({
+        id: borderLayerId,
+        type: 'line',
+        source: fence.sourceId,
+        layout: {
+          'line-cap': style.lineCap || this.defaultFenceStyle.lineCap,
+          'line-join': style.lineJoin || this.defaultFenceStyle.lineJoin
+        },
+        paint: {
+          'line-color': style.borderColor || fence.color || this.defaultFenceStyle.borderColor,
+          'line-width': style.borderWidth !== undefined ? style.borderWidth : this.defaultFenceStyle.borderWidth,
+          'line-opacity': style.borderOpacity !== undefined ? style.borderOpacity : this.defaultFenceStyle.borderOpacity
+        },
+      }, fence.layerId); // Insert border layer after fill layer
     }
 
     // Ensure overlay is placed for stored fence if it has one
@@ -628,6 +810,7 @@ class FenceManager {
 
     // Remove the transient current-fence source/layer to avoid duplicates
     if (this.map.getSource(this.fenceSourceId)) {
+      if (this.map.getLayer(this.fenceBorderLayerId)) this.map.removeLayer(this.fenceBorderLayerId);
       if (this.map.getLayer(this.fenceLayerId)) this.map.removeLayer(this.fenceLayerId);
       this.map.removeSource(this.fenceSourceId);
     }
@@ -642,7 +825,8 @@ class FenceManager {
       overlayHtml: this.currentFenceOverlayHtml,
       overlayOptions: { ...this.currentFenceOverlayOptions },
       overlayMarker: this.currentFenceOverlayMarker || null,
-      persistent: !!this.currentFencePersistent
+      persistent: !!this.currentFencePersistent,
+      style: { ...this.currentFenceStyle }
     };
 
     this.fences.push(completedFence);

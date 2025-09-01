@@ -110,6 +110,88 @@ class GebetaMaps {
     if (!this.fenceManager) return;
     this.fenceManager.defaultColor = color;
     this.fenceManager.currentFenceColor = color;
+    // Also update the fence style to maintain consistency
+    this.fenceManager.setFenceStyle({ 
+      fillColor: color, 
+      lineColor: color, 
+      borderColor: color 
+    });
+  }
+
+  // Enhanced fence styling methods
+  setFenceStyle(styleOptions) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceStyle(styleOptions);
+  }
+
+  setFenceFillColor(color) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceFillColor(color);
+  }
+
+  setFenceFillOpacity(opacity) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceFillOpacity(opacity);
+  }
+
+  setFenceLineColor(color) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceLineColor(color);
+  }
+
+  setFenceLineWidth(width) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceLineWidth(width);
+  }
+
+  setFenceLineOpacity(opacity) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceLineOpacity(opacity);
+  }
+
+  setFenceLineDashArray(dashArray) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceLineDashArray(dashArray);
+  }
+
+  setFenceLineCap(cap) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceLineCap(cap);
+  }
+
+  setFenceLineJoin(join) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceLineJoin(join);
+  }
+
+  setFenceBorderColor(color) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceBorderColor(color);
+  }
+
+  setFenceBorderWidth(width) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceBorderWidth(width);
+  }
+
+  setFenceBorderOpacity(opacity) {
+    if (!this.fenceManager) return;
+    this.fenceManager.setFenceBorderOpacity(opacity);
+  }
+
+  getFenceStyle() {
+    if (!this.fenceManager) return null;
+    return this.fenceManager.getFenceStyle();
+  }
+
+  getDefaultFenceStyle() {
+    if (!this.fenceManager) return null;
+    return this.fenceManager.getDefaultFenceStyle();
+  }
+
+  resetFenceStyle() {
+    if (!this.fenceManager) return;
+    this.fenceManager.resetFenceStyle();
   }
 
   initDirectionsManager() {

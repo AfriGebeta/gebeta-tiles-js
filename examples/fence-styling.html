@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Fence Styling</title>
+  <!-- IMPORTANT: This css file is required for the map to be displayed correctly. -->
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      max-width: 350px;
+      max-height: calc(100vh - 20px);
+      overflow: auto;
+      resize: both;
+      color: #000;
+      box-sizing: border-box;
+    }
+    .control-panel h3 {
+      margin: 0 0 15px 0;
+      font-size: 18px;
+      color: #000;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 8px;
+    }
+    .control-panel h4 {
+      margin: 15px 0 8px 0;
+      font-size: 14px;
+      color: #333;
+      font-weight: 600;
+    }
+    .control-panel button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: pointer;
+      font-size: 14px;
+      color: #000;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+    }
+    .control-panel button:hover {
+      background: #e9ecef;
+      border-color: #007bff;
+    }
+    .control-panel button.primary {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    .control-panel button.primary:hover {
+      background: #0056b3;
+    }
+    .control-panel button.danger {
+      background: #dc3545;
+      color: white;
+      border-color: #dc3545;
+    }
+    .control-panel button.danger:hover {
+      background: #c82333;
+    }
+    .control-panel .points {
+      margin-top: 15px;
+      color: #000;
+    }
+    .control-panel .points ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        color: #000;
+        max-height: 150px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px;
+        background: #f8f9fa;
+    }
+    .control-panel .points li {
+      font-size: 12px;
+      margin-bottom: 4px;
+      padding: 2px 4px;
+      background: white;
+      border-radius: 3px;
+      border-left: 3px solid #007bff;
+    }
+    .style-controls {
+      margin: 15px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e9ecef;
+    }
+    .style-controls label {
+      display: block;
+      margin: 8px 0 4px 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: #555;
+    }
+    .style-controls input, .style-controls select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    .style-controls input[type="range"] {
+      padding: 0;
+    }
+    .style-controls .range-value {
+      font-size: 11px;
+      color: #666;
+      text-align: right;
+      margin-top: 2px;
+    }
+    .preset-styles {
+      margin: 15px 0;
+    }
+    .preset-styles button {
+      margin: 3px;
+      width: calc(50% - 6px);
+      display: inline-block;
+      font-size: 11px;
+      padding: 6px 8px;
+    }
+    .info {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      max-width: 300px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .info strong {
+      color: #ffd700;
+    }
+    .fence-label {
+      padding: 4px 8px;
+      background: white;
+      border: 2px solid #333;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #111;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      transform: translateY(-6px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  
+  <div class="control-panel">
+    <h3>🎨 Fence Styling</h3>
+    
+    <button onclick="addFencePoint()" class="primary">Add Fence Point (Click Map)</button>
+    <button onclick="clearFence()" class="danger">Clear Current Fence</button>
+    <button onclick="clearAllFences()" class="danger">Clear All Fences</button>
+    
+    <div class="style-controls">
+      <h4>Fill Styling</h4>
+      <label for="fill-color">Fill Color:</label>
+      <input type="color" id="fill-color" value="#ff0000" onchange="updateFillColor()">
+      
+      <label for="fill-opacity">Fill Opacity: <span class="range-value">0.3</span></label>
+      <input type="range" id="fill-opacity" min="0" max="1" step="0.1" value="0.3" onchange="updateFillOpacity()">
+      
+      <h4>Line Styling</h4>
+      <label for="line-color">Line Color:</label>
+      <input type="color" id="line-color" value="#ff0000" onchange="updateLineColor()">
+      
+      <label for="line-width">Line Width: <span class="range-value">2</span></label>
+      <input type="range" id="line-width" min="1" max="10" step="1" value="2" onchange="updateLineWidth()">
+      
+      <label for="line-opacity">Line Opacity: <span class="range-value">1.0</span></label>
+      <input type="range" id="line-opacity" min="0" max="1" step="0.1" value="1" onchange="updateLineOpacity()">
+      
+      <label for="line-dash">Line Dash Pattern:</label>
+      <select id="line-dash" onchange="updateLineDash()">
+        <option value="solid">Solid</option>
+        <option value="dashed" selected>Dashed</option>
+        <option value="dotted">Dotted</option>
+        <option value="dash-dot">Dash-Dot</option>
+        <option value="long-dash">Long Dash</option>
+      </select>
+      
+      <label for="line-cap">Line Cap:</label>
+      <select id="line-cap" onchange="updateLineCap()">
+        <option value="butt">Butt</option>
+        <option value="round" selected>Round</option>
+        <option value="square">Square</option>
+      </select>
+      
+      <label for="line-join">Line Join:</label>
+      <select id="line-join" onchange="updateLineJoin()">
+        <option value="bevel">Bevel</option>
+        <option value="round" selected>Round</option>
+        <option value="miter">Miter</option>
+      </select>
+      
+      <h4>Border Styling</h4>
+      <label for="border-color">Border Color:</label>
+      <input type="color" id="border-color" value="#ff0000" onchange="updateBorderColor()">
+      
+      <label for="border-width">Border Width: <span class="range-value">1</span></label>
+      <input type="range" id="border-width" min="0" max="5" step="0.5" value="1" onchange="updateBorderWidth()">
+      
+      <label for="border-opacity">Border Opacity: <span class="range-value">0.8</span></label>
+      <input type="range" id="border-opacity" min="0" max="1" step="0.1" value="0.8" onchange="updateBorderOpacity()">
+    </div>
+    
+    <div class="preset-styles">
+      <h4>Preset Styles</h4>
+      <button onclick="setPresetStyle('default')">Default</button>
+      <button onclick="setPresetStyle('bold')">Bold</button>
+      <button onclick="setPresetStyle('subtle')">Subtle</button>
+      <button onclick="setPresetStyle('neon')">Neon</button>
+      <button onclick="setPresetStyle('vintage')">Vintage</button>
+      <button onclick="setPresetStyle('minimal')">Minimal</button>
+    </div>
+    
+    <button onclick="resetToDefaultStyle()">Reset to Default Style</button>
+    
+    <div class="points">
+        <strong>Fence Points:</strong><br>
+        <details open>
+          <summary style="cursor:pointer;">Show/Hide Points</summary>
+          <ul id="fence-points-list">
+              <!-- Fence points will be dynamically added here -->
+          </ul>
+        </details>
+    </div>
+  </div>
+
+  <div class="info">
+    <strong>Instructions:</strong><br>
+    • Click on the map to add fence points<br>
+    • Use the controls to customize fence appearance<br>
+    • Try different preset styles for quick styling<br>
+    • Each new fence inherits the current style settings<br>
+    • Click on the first point to close the fence<br>
+    • Add at least 3 points to draw a complete fence
+  </div>
+
+  <!-- IMPORTANT: load the gebeta-maps.umd.js file from the tiles.gebeta.app cdn server. -->
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <!-- this is just a utility to load the env for all examples -->
+  <script src="config.js"></script>
+
+<script>
+    let gebetaMap;
+    let map;
+    let fencePoints = [];
+    let currentFenceColor = '#ff0000';
+
+    // Initialize the map
+    window.addEventListener('DOMContentLoaded', () => {
+        const cfg = loadConfig();
+        const MY_GEBETA_API_KEY = cfg.GEBETA_API_KEY;
+        
+        gebetaMap = new GebetaMaps({
+            apiKey: MY_GEBETA_API_KEY,
+            clustering: { enabled: false }
+        });
+
+        map = gebetaMap.init({
+            container: 'map',
+            center: [38.7685, 9.0161],
+            zoom: 15,
+        });
+
+        map.on('load', () => {
+            gebetaMap.addNavigationControls();
+            // Set initial fence style
+            updateFenceStyleFromControls();
+        });
+
+        gebetaMap.on('click', (e) => {
+            const lngLat = [e.lngLat.lng, e.lngLat.lat];
+            
+            // If a fence is completed, start a new one
+            if (gebetaMap.isFenceCompleted()) {
+                fencePoints = [];
+                const fencePointsList = document.getElementById('fence-points-list');
+                if (fencePointsList) fencePointsList.innerHTML = '';
+                // Update fence style for new fence
+                updateFenceStyleFromControls();
+            }
+            
+            // Add the fence point
+            const options = { persistent: true };
+            gebetaMap.addFencePoint(lngLat, null, null, currentFenceColor, options);
+            fencePoints.push(lngLat);
+
+            console.log('Added fence point:', lngLat);
+            // Update the fence points list
+            const fencePointsList = document.getElementById('fence-points-list');
+            if (fencePointsList) {
+                const listItem = document.createElement('li');
+                listItem.textContent = `Point ${fencePoints.length}: [${lngLat[1].toFixed(4)}, ${lngLat[0].toFixed(4)}]`;
+                fencePointsList.appendChild(listItem);
+            }
+        });
+
+        map.on('error', (e) => {
+            const mapContainer = document.getElementById('map');
+            if (mapContainer) {
+                mapContainer.innerHTML = `<div style="padding: 20px; text-align: center;">
+                    <h2>Could not load map style</h2>
+                    <p>Please ensure the style server at <code>https://tiles.gebeta.app</code> is reachable.</p>
+                </div>`;
+            }
+        });
+    });
+
+    // Style update functions
+    function updateFenceStyleFromControls() {
+        if (!gebetaMap) return;
+        
+        const fillColor = document.getElementById('fill-color').value;
+        const fillOpacity = parseFloat(document.getElementById('fill-opacity').value);
+        const lineColor = document.getElementById('line-color').value;
+        const lineWidth = parseInt(document.getElementById('line-width').value);
+        const lineOpacity = parseFloat(document.getElementById('line-opacity').value);
+        const lineDash = document.getElementById('line-dash').value;
+        const lineCap = document.getElementById('line-cap').value;
+        const lineJoin = document.getElementById('line-join').value;
+        const borderColor = document.getElementById('border-color').value;
+        const borderWidth = parseFloat(document.getElementById('border-width').value);
+        const borderOpacity = parseFloat(document.getElementById('border-opacity').value);
+        
+        // Convert dash pattern to array
+        let dashArray = [2, 2]; // default dashed
+        switch(lineDash) {
+            case 'solid': dashArray = []; break;
+            case 'dotted': dashArray = [1, 1]; break;
+            case 'dash-dot': dashArray = [4, 1, 1, 1]; break;
+            case 'long-dash': dashArray = [6, 2]; break;
+        }
+        
+        gebetaMap.setFenceStyle({
+            fillColor,
+            fillOpacity,
+            lineColor,
+            lineWidth,
+            lineOpacity,
+            lineDashArray: dashArray,
+            lineCap,
+            lineJoin,
+            borderColor,
+            borderWidth,
+            borderOpacity
+        });
+        
+        currentFenceColor = lineColor;
+    }
+
+    function updateFillColor() {
+        const color = document.getElementById('fill-color').value;
+        if (gebetaMap) gebetaMap.setFenceFillColor(color);
+    }
+
+    function updateFillOpacity() {
+        const opacity = parseFloat(document.getElementById('fill-opacity').value);
+        const span = document.querySelector('label[for="fill-opacity"] .range-value');
+        if (span) span.textContent = opacity.toFixed(1);
+        if (gebetaMap) gebetaMap.setFenceFillOpacity(opacity);
+    }
+
+    function updateLineColor() {
+        const color = document.getElementById('line-color').value;
+        if (gebetaMap) gebetaMap.setFenceLineColor(color);
+        currentFenceColor = color;
+    }
+
+    function updateLineWidth() {
+        const width = parseInt(document.getElementById('line-width').value);
+        const span = document.querySelector('label[for="line-width"] .range-value');
+        if (span) span.textContent = width;
+        if (gebetaMap) gebetaMap.setFenceLineWidth(width);
+    }
+
+    function updateLineOpacity() {
+        const opacity = parseFloat(document.getElementById('line-opacity').value);
+        const span = document.querySelector('label[for="line-opacity"] .range-value');
+        if (span) span.textContent = opacity.toFixed(1);
+        if (gebetaMap) gebetaMap.setFenceLineOpacity(opacity);
+    }
+
+    function updateLineDash() {
+        updateFenceStyleFromControls();
+    }
+
+    function updateLineCap() {
+        const cap = document.getElementById('line-cap').value;
+        if (gebetaMap) gebetaMap.setFenceLineCap(cap);
+    }
+
+    function updateLineJoin() {
+        const join = document.getElementById('line-join').value;
+        if (gebetaMap) gebetaMap.setFenceLineJoin(join);
+    }
+
+    function updateBorderColor() {
+        const color = document.getElementById('border-color').value;
+        if (gebetaMap) gebetaMap.setFenceBorderColor(color);
+    }
+
+    function updateBorderWidth() {
+        const width = parseFloat(document.getElementById('border-width').value);
+        const span = document.querySelector('label[for="border-width"] .range-value');
+        if (span) span.textContent = width;
+        if (gebetaMap) gebetaMap.setFenceBorderWidth(width);
+    }
+
+    function updateBorderOpacity() {
+        const opacity = parseFloat(document.getElementById('border-opacity').value);
+        const span = document.querySelector('label[for="border-opacity"] .range-value');
+        if (span) span.textContent = opacity.toFixed(1);
+        if (gebetaMap) gebetaMap.setFenceBorderOpacity(opacity);
+    }
+
+    // Preset style functions
+    function setPresetStyle(styleName) {
+        if (!gebetaMap) return;
+        
+        const presets = {
+            default: {
+                fillColor: '#ff0000',
+                fillOpacity: 0.3,
+                lineColor: '#ff0000',
+                lineWidth: 2,
+                lineOpacity: 1,
+                lineDashArray: [2, 2],
+                lineCap: 'round',
+                lineJoin: 'round',
+                borderColor: '#ff0000',
+                borderWidth: 1,
+                borderOpacity: 0.8
+            },
+            bold: {
+                fillColor: '#ff0000',
+                fillOpacity: 0.5,
+                lineColor: '#ff0000',
+                lineWidth: 4,
+                lineOpacity: 1,
+                lineDashArray: [],
+                lineCap: 'round',
+                lineJoin: 'round',
+                borderColor: '#cc0000',
+                borderWidth: 2,
+                borderOpacity: 1
+            },
+            subtle: {
+                fillColor: '#666666',
+                fillOpacity: 0.1,
+                lineColor: '#666666',
+                lineWidth: 1,
+                lineOpacity: 0.6,
+                lineDashArray: [3, 3],
+                lineCap: 'butt',
+                lineJoin: 'bevel',
+                borderColor: '#999999',
+                borderWidth: 0.5,
+                borderOpacity: 0.4
+            },
+            neon: {
+                fillColor: '#00ffff',
+                fillOpacity: 0.2,
+                lineColor: '#00ffff',
+                lineWidth: 3,
+                lineOpacity: 1,
+                lineDashArray: [1, 1],
+                lineCap: 'round',
+                lineJoin: 'round',
+                borderColor: '#ffffff',
+                borderWidth: 1,
+                borderOpacity: 0.9
+            },
+            vintage: {
+                fillColor: '#8b4513',
+                fillOpacity: 0.15,
+                lineColor: '#8b4513',
+                lineWidth: 2,
+                lineOpacity: 0.8,
+                lineDashArray: [5, 2, 1, 2],
+                lineCap: 'square',
+                lineJoin: 'miter',
+                borderColor: '#654321',
+                borderWidth: 1.5,
+                borderOpacity: 0.7
+            },
+            minimal: {
+                fillColor: '#000000',
+                fillOpacity: 0.05,
+                lineColor: '#000000',
+                lineWidth: 1,
+                lineOpacity: 0.4,
+                lineDashArray: [],
+                lineCap: 'butt',
+                lineJoin: 'bevel',
+                borderColor: '#000000',
+                borderWidth: 0.5,
+                borderOpacity: 0.3
+            }
+        };
+        
+        const style = presets[styleName];
+        if (style) {
+            gebetaMap.setFenceStyle(style);
+            updateControlsFromStyle(style);
+            console.log(`Applied ${styleName} preset style`);
+        }
+    }
+
+    function updateControlsFromStyle(style) {
+        // Update control values to match the applied style
+        if (style.fillColor) document.getElementById('fill-color').value = style.fillColor;
+        if (style.fillOpacity !== undefined) {
+            document.getElementById('fill-opacity').value = style.fillOpacity;
+            const span = document.querySelector('label[for="fill-opacity"] .range-value');
+            if (span) span.textContent = style.fillOpacity.toFixed(1);
+        }
+        if (style.lineColor) document.getElementById('line-color').value = style.lineColor;
+        if (style.lineWidth !== undefined) {
+            document.getElementById('line-width').value = style.lineWidth;
+            const span = document.querySelector('label[for="line-width"] .range-value');
+            if (span) span.textContent = style.lineWidth;
+        }
+        if (style.lineOpacity !== undefined) {
+            document.getElementById('line-opacity').value = style.lineOpacity;
+            const span = document.querySelector('label[for="line-opacity"] .range-value');
+            if (span) span.textContent = style.lineOpacity.toFixed(1);
+        }
+        if (style.lineDashArray) {
+            // Determine dash pattern from array
+            let dashPattern = 'dashed';
+            if (style.lineDashArray.length === 0) dashPattern = 'solid';
+            else if (style.lineDashArray.length === 2 && style.lineDashArray[0] === 1) dashPattern = 'dotted';
+            else if (style.lineDashArray.length === 4) dashPattern = 'dash-dot';
+            else if (style.lineDashArray.length === 2 && style.lineDashArray[0] === 6) dashPattern = 'long-dash';
+            document.getElementById('line-dash').value = dashPattern;
+        }
+        if (style.lineCap) document.getElementById('line-cap').value = style.lineCap;
+        if (style.lineJoin) document.getElementById('line-join').value = style.lineJoin;
+        if (style.borderColor) document.getElementById('border-color').value = style.borderColor;
+        if (style.borderWidth !== undefined) {
+            document.getElementById('border-width').value = style.borderWidth;
+            const span = document.querySelector('label[for="border-width"] .range-value');
+            if (span) span.textContent = style.borderWidth;
+        }
+        if (style.borderOpacity !== undefined) {
+            document.getElementById('border-opacity').value = style.borderOpacity;
+            const span = document.querySelector('label[for="border-opacity"] .range-value');
+            if (span) span.textContent = style.borderOpacity.toFixed(1);
+        }
+        
+        currentFenceColor = style.lineColor || style.fillColor;
+    }
+
+    function resetToDefaultStyle() {
+        if (!gebetaMap) return;
+        gebetaMap.resetFenceStyle();
+        setPresetStyle('default');
+        console.log('Reset to default fence style');
+    }
+
+    // Global functions for buttons
+    window.addFencePoint = function() {
+        if (!gebetaMap) return;
+        console.log('Click on the map to add fence points');
+    };
+
+    window.clearFence = function() {
+        if (!gebetaMap) return;
+        gebetaMap.clearFence();
+        fencePoints = [];
+        const fencePointsList = document.getElementById('fence-points-list');
+        if (fencePointsList) fencePointsList.innerHTML = '';
+        console.log('Fence cleared');
+    };
+
+    window.clearAllFences = function() {
+        if (!gebetaMap) return;
+        gebetaMap.clearAllFences();
+        fencePoints = [];
+        const fencePointsList = document.getElementById('fence-points-list');
+        if (fencePointsList) fencePointsList.innerHTML = '';
+        console.log('All fences cleared');
+    };
+
+    window.setPresetStyle = setPresetStyle;
+    window.resetToDefaultStyle = resetToDefaultStyle;
+</script>
+</body>
+</html>

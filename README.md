@@ -47,6 +47,17 @@ Demonstrates the core fence drawing functionality:
 - Point-in-polygon detection for starting new fences
 - Custom color support and default color configuration
 
+### Advanced Fence Styling
+[examples/fence-styling.html](examples/fence-styling.html)
+
+Showcases comprehensive fence styling capabilities:
+- **Fill Styling**: Custom fill colors and opacity
+- **Line Styling**: Width, opacity, dash patterns, line caps, and joins
+- **Border Styling**: Separate border colors, widths, and opacity
+- **Style Presets**: Quick application of predefined styles (Bold, Subtle, Neon, Vintage, Minimal)
+- **Real-time Updates**: Live preview of style changes while drawing
+- **Style Inheritance**: New fences automatically inherit current style settings
+
 ### Custom Markers
 [examples/markers.html](examples/markers.html)
 
@@ -106,6 +117,23 @@ gebetaMap.initFenceManager('#ff6600'); // Orange default color
 - `getFences()` - Get all stored fences
 - `setFenceDefaultColor(color)` - Set the default color for new fences
 
+#### Advanced Fence Styling
+- `setFenceStyle(styleOptions)` - Set comprehensive fence style options
+- `setFenceFillColor(color)` - Set fence fill color
+- `setFenceFillOpacity(opacity)` - Set fence fill opacity (0-1)
+- `setFenceLineColor(color)` - Set fence line color
+- `setFenceLineWidth(width)` - Set fence line width in pixels
+- `setFenceLineOpacity(opacity)` - Set fence line opacity (0-1)
+- `setFenceLineDashArray(dashArray)` - Set fence line dash pattern
+- `setFenceLineCap(cap)` - Set fence line cap ('butt', 'round', 'square')
+- `setFenceLineJoin(join)` - Set fence line join ('bevel', 'round', 'miter')
+- `setFenceBorderColor(color)` - Set fence border color
+- `setFenceBorderWidth(width)` - Set fence border width in pixels
+- `setFenceBorderOpacity(opacity)` - Set fence border opacity (0-1)
+- `getFenceStyle()` - Get current fence style configuration
+- `getDefaultFenceStyle()` - Get default fence style configuration
+- `resetFenceStyle()` - Reset fence style to defaults
+
 ## Configuration
 
 ### Clustering Configuration
@@ -130,6 +158,91 @@ const clusteringConfig = {
 - **Auto-Completion**: Click on existing points to close fences
 - **Smart Detection**: Automatically start new fences when clicking outside completed ones
 - **Color Customization**: Support for custom colors per fence and default color configuration
+- **Advanced Styling**: Comprehensive styling options for fill, lines, and borders including opacity, dash patterns, line caps, and joins
+
+### Fence Styling
+
+The fence manager now supports comprehensive styling options for creating beautiful, professional-looking fence boundaries.
+
+#### Advanced Styling Methods
+
+```javascript
+// Set comprehensive fence style
+gebetaMap.setFenceStyle({
+    fillColor: '#ff0000',        // Fill color
+    fillOpacity: 0.3,            // Fill opacity (0-1)
+    lineColor: '#ff0000',        // Line color
+    lineWidth: 2,                // Line width in pixels
+    lineOpacity: 1,              // Line opacity (0-1)
+    lineDashArray: [2, 2],       // Dash pattern [dash, gap]
+    lineCap: 'round',            // Line cap: 'butt', 'round', 'square'
+    lineJoin: 'round',           // Line join: 'bevel', 'round', 'miter'
+    borderColor: '#ff0000',      // Border color
+    borderWidth: 1,              // Border width in pixels
+    borderOpacity: 0.8           // Border opacity (0-1)
+});
+
+// Individual style property setters
+gebetaMap.setFenceFillColor('#00ff00');           // Set fill color
+gebetaMap.setFenceFillOpacity(0.5);              // Set fill opacity
+gebetaMap.setFenceLineColor('#0000ff');          // Set line color
+gebetaMap.setFenceLineWidth(4);                  // Set line width
+gebetaMap.setFenceLineOpacity(0.8);              // Set line opacity
+gebetaMap.setFenceLineDashArray([5, 2, 1, 2]);  // Set dash pattern
+gebetaMap.setFenceLineCap('square');             // Set line cap
+gebetaMap.setFenceLineJoin('miter');             // Set line join
+gebetaMap.setFenceBorderColor('#cc0000');        // Set border color
+gebetaMap.setFenceBorderWidth(2);                // Set border width
+gebetaMap.setFenceBorderOpacity(0.9);            // Set border opacity
+```
+
+#### Style Presets
+
+```javascript
+// Quick preset styles
+gebetaMap.setFenceStyle({
+    // Bold style
+    fillColor: '#ff0000',
+    fillOpacity: 0.5,
+    lineColor: '#ff0000',
+    lineWidth: 4,
+    lineOpacity: 1,
+    lineDashArray: [],           // Solid line
+    lineCap: 'round',
+    lineJoin: 'round',
+    borderColor: '#cc0000',
+    borderWidth: 2,
+    borderOpacity: 1
+});
+
+// Subtle style
+gebetaMap.setFenceStyle({
+    fillColor: '#666666',
+    fillOpacity: 0.1,
+    lineColor: '#666666',
+    lineWidth: 1,
+    lineOpacity: 0.6,
+    lineDashArray: [3, 3],       // Dashed line
+    lineCap: 'butt',
+    lineJoin: 'bevel',
+    borderColor: '#999999',
+    borderWidth: 0.5,
+    borderOpacity: 0.4
+});
+```
+
+#### Style Management
+
+```javascript
+// Get current fence style
+const currentStyle = gebetaMap.getFenceStyle();
+
+// Get default fence style
+const defaultStyle = gebetaMap.getDefaultFenceStyle();
+
+// Reset to default style
+gebetaMap.resetFenceStyle();
+```
 
 ### Fence Color Management
 
