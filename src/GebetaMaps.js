@@ -43,7 +43,7 @@ class GebetaMaps {
   }
 
   init(options) {
-    const styleUrl = `https://tiles.gebeta.app/styles/standard/style.json`;
+    const styleUrl = `https://tiles.gebeta.app/styles/standard/terrain/terrain.json`;
 
     this.map = new maplibregl.Map({
       ...options,
