@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 examples/config.js
+go_tcs
+tile-cacher-config.json
+tiles

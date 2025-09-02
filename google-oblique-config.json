@@ -1,0 +1,22 @@
+{
+  "outputDir": "google-oblique-tiles",
+  "minZoom": 18,
+  "maxZoom": 18,
+  "pitch": 45,
+  "heading": 0,
+  "headings": [0],
+  "pitches": [45],
+  "apiKey": "",
+  "headers": {
+    "Referer": "https://www.google.com/maps/",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+  },
+  "bbox": [
+    -73.985,
+    40.748,
+    -73.975,
+    40.758
+  ],
+  "concurrency": 4,
+  "mapType": "earth"
+}

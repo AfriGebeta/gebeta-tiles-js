@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Maps Oblique View Test</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    .info {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="info">
+    <h3>Oblique View Test</h3>
+    <p>Layer: <span id="layer">m</span></p>
+    <p>Pitch: 75°</p>
+    <p>Heading: 0°</p>
+    <p>Zoom: <span id="zoom">20</span></p>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Center on Addis Ababa
+    const map = L.map('map').setView([8.9806, 38.7578], 20);
+    
+    // Layer types to try
+    const layers = [
+      { id: 'm', name: 'Roadmap (3D)' },
+      { id: 'y', name: 'Hybrid' },
+      { id: 's', name: 'Satellite' },
+      { id: 'h', name: 'Roads Only' }
+    ];
+    
+    // Current layer
+    let currentLayer = 'm';
+    
+    // Create tile layers
+    const tileLayers = {};
+    layers.forEach(layer => {
+      tileLayers[layer.name] = L.tileLayer(`http://localhost:6969/?l=${layer.id}&z={z}&x={x}&y={y}&pitch=75&heading=0`, {
+        maxZoom: 21,
+        tileSize: 256
+      });
+      
+      // Add click handler to switch layers
+      document.getElementById('layer').addEventListener('click', function() {
+        // Cycle through layers
+        const currentIndex = layers.findIndex(l => l.id === currentLayer);
+        const nextIndex = (currentIndex + 1) % layers.length;
+        currentLayer = layers[nextIndex].id;
+        
+        // Update UI
+        document.getElementById('layer').textContent = currentLayer;
+        
+        // Remove all layers
+        Object.values(tileLayers).forEach(layer => {
+          if (map.hasLayer(layer)) {
+            map.removeLayer(layer);
+          }
+        });
+        
+        // Add the new layer
+        tileLayers[layers[nextIndex].name].addTo(map);
+      });
+    });
+    
+    // Add the first layer by default
+    tileLayers[layers[0].name].addTo(map);
+    
+    // Update zoom display
+    map.on('zoomend', function() {
+      document.getElementById('zoom').textContent = map.getZoom();
+    });
+  </script>
+</body>
+</html>

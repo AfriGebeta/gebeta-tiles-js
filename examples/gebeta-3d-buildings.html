@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gebeta 3D Buildings (Height Extrusion)</title>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+      html, body, #map { height: 100%; margin: 0; }
+      .panel {
+        position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      .panel label { display: block; margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div class="panel">
+      <div><b>3D Extrusions</b></div>
+      <label>Max Height (m) <input id="maxHeight" type="number" value="100" step="10" min="10" style="width:70px;" /></label>
+      <div>Height server: http://localhost:6971</div>
+    </div>
+
+    <!-- Load UMD build like other examples -->
+    <script src="../dist/gebeta-maps.umd.js"></script>
+    <script src="config.js"></script>
+    <script>
+      let gebetaMap;
+      let map;
+      let heightManager;
+      document.addEventListener('DOMContentLoaded', () => {
+        const config = loadConfig();
+        const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+
+        gebetaMap = new GebetaMaps({ apiKey: MY_GEBETA_API_KEY });
+        map = gebetaMap.init({
+          container: 'map',
+          center: [38.7578, 8.9806],
+          zoom: 16,
+          pitch: 60,
+          bearing: -20,
+        });
+
+        map.on('load', async () => {
+            heightManager = new window.HeightExtrusionManager(map, {
+              heightServerUrl: 'http://localhost:6971',
+              maxHeight: 100,
+            });
+            await heightManager.init('openmaptiles', 'building');
+
+            const input = document.getElementById('maxHeight');
+            input.addEventListener('change', () => {
+              heightManager.maxHeight = Number(input.value) || 100;
+              map.fire('moveend');
+            });
+        });
+      });
+    </script>
+  </body>
+</html>
+
+

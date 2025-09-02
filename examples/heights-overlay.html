@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Height Tiles Overlay</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      html, body, #map { height: 100%; margin: 0; }
+      .legend {
+        position: absolute; top: 10px; right: 10px; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      .legend input { width: 70px; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div class="legend">
+      <div><b>Height tiles</b></div>
+      <div>Opacity <input id="opacity" type="range" min="0" max="1" step="0.05" value="0.6" /></div>
+      <div>Note: scale set via env HEIGHT_MAX (default 100 m)</div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      // Addis Ababa
+      const map = L.map('map').setView([8.9806, 38.7578], 18);
+
+      // Basemap (OSM for context; replace with your vector basemap if desired)
+      const base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Height tiles server (running at :6971)
+      const heights = L.tileLayer('http://localhost:6971/tiles/{z}/{x}/{y}.png', {
+        maxZoom: 22,
+        opacity: 0.6,
+        crossOrigin: true
+      }).addTo(map);
+
+      // Opacity control
+      const op = document.getElementById('opacity');
+      op.addEventListener('input', () => {
+        heights.setOpacity(parseFloat(op.value));
+      });
+    </script>
+  </body>
+</html>
+
+
+

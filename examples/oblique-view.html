@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Building Height Research - Oblique View</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    .heading-btn {
+      margin: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .active {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .settings-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      max-width: 300px;
+    }
+    .settings-panel h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .settings-panel label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .settings-panel input, .settings-panel select {
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    .settings-panel button {
+      padding: 5px 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .height-tool {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: white;
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    .height-tool h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .height-value {
+      font-weight: bold;
+      font-size: 18px;
+      color: #4CAF50;
+    }
+    .measurement-line {
+      stroke: #ff0000;
+      stroke-width: 2;
+      stroke-dasharray: 5, 5;
+    }
+    .marker-shadow {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="controls">
+    <div>
+      <button class="heading-btn active" data-heading="0">North (0°)</button>
+      <button class="heading-btn" data-heading="90">East (90°)</button>
+      <button class="heading-btn" data-heading="180">South (180°)</button>
+      <button class="heading-btn" data-heading="270">West (270°)</button>
+    </div>
+    <div style="margin-top: 10px;">
+      <button id="toggleMeasure" style="width: 100%;">Start Height Measurement</button>
+    </div>
+  </div>
+  
+  <div class="settings-panel">
+    <h3>3D Building Research</h3>
+    <label for="pitch">Pitch (°):</label>
+    <input type="range" id="pitch" min="0" max="75" value="60" step="5">
+    <span id="pitchValue">60°</span>
+    
+    <label for="mapType">Map Type:</label>
+    <select id="mapType">
+      <option value="roadmap" selected>Roadmap (3D Buildings)</option>
+      <option value="satellite">Satellite</option>
+      <option value="hybrid">Hybrid</option>
+    </select>
+    
+    <label for="zoom">Zoom Level:</label>
+    <input type="range" id="zoom" min="16" max="21" value="20" step="1">
+    <span id="zoomValue">20</span>
+    
+    <button id="applySettings">Apply Settings</button>
+  </div>
+  
+  <div class="height-tool" style="display: none;">
+    <h3>Building Height</h3>
+    <p>Click on base, then top of building</p>
+    <div>Measured Height: <span class="height-value">--</span> meters</div>
+    <button id="resetMeasure">Reset</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Center coordinates (Addis Ababa)
+    const center = [8.9871, 38.7545];
+    
+    // Initialize map
+    const map = L.map('map', {
+      center: center,
+      zoom: 20,
+      maxZoom: 21,
+      minZoom: 16
+    });
+
+    // Current settings
+    let currentSettings = {
+      heading: 0,
+      pitch: 60,
+      mapType: 'roadmap',
+      zoom: 20
+    };
+
+    // Function to create and update tile layer
+    function updateTileLayer() {
+      // Remove existing tile layer if any
+      if (window.tileLayer) {
+        map.removeLayer(window.tileLayer);
+      }
+
+      // Create new tile layer with current settings
+      const tileUrl = `/google-oblique-tiles/h${currentSettings.heading}/p${currentSettings.pitch}/{z}/{x}/{y}.png`;
+      
+      window.tileLayer = L.tileLayer(tileUrl, {
+        attribution: 'Map data for research purposes only',
+        maxZoom: 21,
+        tileSize: 256,
+        zoomOffset: 0,
+      });
+
+      window.tileLayer.addTo(map);
+      
+      // Update zoom if needed
+      if (map.getZoom() !== currentSettings.zoom) {
+        map.setZoom(currentSettings.zoom);
+      }
+    }
+
+    // Initialize tile layer
+    updateTileLayer();
+
+    // Handle heading button clicks
+    document.querySelectorAll('.heading-btn').forEach(button => {
+      button.addEventListener('click', function() {
+        // Update active button
+        document.querySelectorAll('.heading-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        this.classList.add('active');
+        
+        // Update heading and refresh tile layer
+        currentSettings.heading = parseInt(this.getAttribute('data-heading'));
+        updateTileLayer();
+      });
+    });
+
+    // Handle settings panel
+    const pitchSlider = document.getElementById('pitch');
+    const pitchValue = document.getElementById('pitchValue');
+    const mapTypeSelect = document.getElementById('mapType');
+    const zoomSlider = document.getElementById('zoom');
+    const zoomValue = document.getElementById('zoomValue');
+    const applyButton = document.getElementById('applySettings');
+
+    pitchSlider.addEventListener('input', function() {
+      pitchValue.textContent = this.value + '°';
+    });
+
+    zoomSlider.addEventListener('input', function() {
+      zoomValue.textContent = this.value;
+    });
+
+    applyButton.addEventListener('click', function() {
+      currentSettings.pitch = parseInt(pitchSlider.value);
+      currentSettings.mapType = mapTypeSelect.value;
+      currentSettings.zoom = parseInt(zoomSlider.value);
+      updateTileLayer();
+    });
+
+    // Height measurement tool
+    const toggleMeasureBtn = document.getElementById('toggleMeasure');
+    const heightTool = document.querySelector('.height-tool');
+    const heightValue = document.querySelector('.height-value');
+    const resetMeasureBtn = document.getElementById('resetMeasure');
+    
+    let isMeasuring = false;
+    let measurePoints = [];
+    let measureMarkers = [];
+    let measureLine = null;
+
+    toggleMeasureBtn.addEventListener('click', function() {
+      isMeasuring = !isMeasuring;
+      if (isMeasuring) {
+        this.textContent = 'Cancel Measurement';
+        this.style.backgroundColor = '#f44336';
+        heightTool.style.display = 'block';
+        map.on('click', handleMapClick);
+      } else {
+        this.textContent = 'Start Height Measurement';
+        this.style.backgroundColor = '#4CAF50';
+        heightTool.style.display = 'none';
+        resetMeasurement();
+        map.off('click', handleMapClick);
+      }
+    });
+
+    resetMeasureBtn.addEventListener('click', resetMeasurement);
+
+    function handleMapClick(e) {
+      if (measurePoints.length >= 2) {
+        resetMeasurement();
+      }
+      
+      const point = e.latlng;
+      measurePoints.push(point);
+      
+      // Add marker
+      const marker = L.marker(point).addTo(map);
+      measureMarkers.push(marker);
+      
+      // If we have two points, draw line and calculate height
+      if (measurePoints.length === 2) {
+        drawMeasurementLine();
+        calculateHeight();
+      }
+    }
+
+    function drawMeasurementLine() {
+      if (measureLine) {
+        map.removeLayer(measureLine);
+      }
+      
+      measureLine = L.polyline(measurePoints, {
+        color: '#ff0000',
+        weight: 2,
+        dashArray: '5, 5'
+      }).addTo(map);
+    }
+
+    function calculateHeight() {
+      // In a real implementation, you would use shadow length and sun angle
+      // Here we're just using a simple pixel-based estimation
+      const p1 = map.latLngToContainerPoint(measurePoints[0]);
+      const p2 = map.latLngToContainerPoint(measurePoints[1]);
+      
+      // Calculate pixel distance
+      const pixelDist = Math.sqrt(
+        Math.pow(p2.x - p1.x, 2) + 
+        Math.pow(p2.y - p1.y, 2)
+      );
+      
+      // Convert to meters (very rough approximation)
+      // This is where you would implement your actual height calculation algorithm
+      // based on the oblique view angle, shadow length, etc.
+      const heightMeters = (pixelDist * 0.3).toFixed(1);
+      
+      heightValue.textContent = heightMeters;
+    }
+
+    function resetMeasurement() {
+      measurePoints = [];
+      
+      measureMarkers.forEach(marker => {
+        map.removeLayer(marker);
+      });
+      measureMarkers = [];
+      
+      if (measureLine) {
+        map.removeLayer(measureLine);
+        measureLine = null;
+      }
+      
+      heightValue.textContent = '--';
+    }
+
+    // Fallback to OSM if tiles don't load
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    });
+
+    // Add layer control
+    const baseLayers = {
+      "Oblique View": window.tileLayer,
+      "OpenStreetMap": osmLayer
+    };
+    
+    L.control.layers(baseLayers).addTo(map);
+    
+    // Add scale control
+    L.control.scale().addTo(map);
+    
+    // Update URL when map moves
+    map.on('moveend', function() {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const url = new URL(window.location);
+      url.searchParams.set('lat', center.lat.toFixed(6));
+      url.searchParams.set('lng', center.lng.toFixed(6));
+      url.searchParams.set('z', zoom);
+      url.searchParams.set('h', currentSettings.heading);
+      url.searchParams.set('p', currentSettings.pitch);
+      window.history.replaceState({}, '', url);
+    });
+    
+    // Load from URL params if available
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('lat') && urlParams.has('lng')) {
+      const lat = parseFloat(urlParams.get('lat'));
+      const lng = parseFloat(urlParams.get('lng'));
+      const zoom = urlParams.has('z') ? parseInt(urlParams.get('z')) : 19;
+      const heading = urlParams.has('h') ? parseInt(urlParams.get('h')) : 0;
+      const pitch = urlParams.has('p') ? parseInt(urlParams.get('p')) : 45;
+      
+      map.setView([lat, lng], zoom);
+      currentSettings.heading = heading;
+      currentSettings.pitch = pitch;
+      
+      // Update UI to match
+      document.querySelectorAll('.heading-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.getAttribute('data-heading')) === heading);
+      });
+      
+      pitchSlider.value = pitch;
+      pitchValue.textContent = pitch + '°';
+      
+      updateTileLayer();
+    }
+  </script>
+</body>
+</html>

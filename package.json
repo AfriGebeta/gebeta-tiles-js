@@ -4,13 +4,22 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "cache:tiles": "node scripts/tile-cacher.js",
+    "heights:kill": "pkill -f \"height-tile-server.js\" || true",
+    "heights:start": "yarn heights:kill && node scripts/height-tile-server.js",
+    "heights:addis": "yarn heights:kill && LON_OFFSET=34.76 node scripts/height-tile-server.js",
+    "heights:addis:debug": "LON_SCALE=10 node scripts/height-tile-server.js"
   },
   "devDependencies": {
     "vite": "^7.0.0"
   },
   "dependencies": {
+    "@mapbox/sphericalmercator": "^2.0.1",
+    "geotiff": "^2.1.4-beta.0",
     "maplibre-gl": "^5.6.0",
+    "pngjs": "^7.0.0",
+    "proj4": "^2.19.10",
     "supercluster": "^8.0.1"
   }
 }

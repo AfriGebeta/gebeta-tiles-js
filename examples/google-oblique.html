@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Maps Oblique View Test</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    .info {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 5px;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="controls">
+    <div>
+      <label for="layer">Layer:</label>
+      <select id="layer">
+        <option value="svv" selected>3D Buildings (svv)</option>
+        <option value="s">Satellite</option>
+        <option value="y">Hybrid</option>
+        <option value="m">Roadmap</option>
+      </select>
+    </div>
+    <div style="margin-top: 10px;">
+      <label for="pitch">Pitch (°):</label>
+      <input type="range" id="pitch" min="0" max="60" value="45" step="5">
+      <span id="pitchValue">45°</span>
+    </div>
+    <div style="margin-top: 10px;">
+      <label for="heading">Heading (°):</label>
+      <input type="range" id="heading" min="0" max="359" value="0" step="45">
+      <span id="headingValue">0°</span>
+    </div>
+    <div style="margin-top: 10px;">
+      <button id="applySettings">Apply Settings</button>
+    </div>
+  </div>
+  
+  <div class="info">
+    <h3>Google Maps Oblique View Test</h3>
+    <p>This page uses the oblique tile cacher to display 3D buildings from Google Maps.</p>
+    <p>Current Zoom: <span id="currentZoom">18</span></p>
+    <p>Current Center: <span id="currentCenter"></span></p>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Default settings
+    const settings = {
+      layer: 'svv',
+      pitch: 45,
+      heading: 0,
+      zoom: 18,
+      center: [8.9806, 38.7578] // Addis Ababa
+    };
+    
+    // Initialize map
+    const map = L.map('map', {
+      center: settings.center,
+      zoom: settings.zoom,
+      maxZoom: 21,
+      minZoom: 16
+    });
+    
+    // Update info display
+    function updateInfo() {
+      document.getElementById('currentZoom').textContent = map.getZoom();
+      const center = map.getCenter();
+      document.getElementById('currentCenter').textContent = 
+        `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+    }
+    
+    // Function to create and update tile layer
+    function updateTileLayer() {
+      // Remove existing tile layer if any
+      if (window.tileLayer) {
+        map.removeLayer(window.tileLayer);
+      }
+      
+      // Create URL for the tile cacher
+      const tileUrl = `http://localhost:6969/?l=${settings.layer}&z={z}&x={x}&y={y}&pitch=${settings.pitch}&heading=${settings.heading}`;
+      
+      // Create new tile layer
+      window.tileLayer = L.tileLayer(tileUrl, {
+        attribution: 'Google Maps (Research Only)',
+        maxZoom: 21,
+        tileSize: 256,
+        zoomOffset: 0,
+      });
+      
+      // Add to map
+      window.tileLayer.addTo(map);
+      
+      // Update UI
+      document.getElementById('layer').value = settings.layer;
+      document.getElementById('pitch').value = settings.pitch;
+      document.getElementById('pitchValue').textContent = settings.pitch + '°';
+      document.getElementById('heading').value = settings.heading;
+      document.getElementById('headingValue').textContent = settings.heading + '°';
+      
+      updateInfo();
+    }
+    
+    // Initialize tile layer
+    updateTileLayer();
+    
+    // Handle settings changes
+    document.getElementById('pitch').addEventListener('input', function() {
+      document.getElementById('pitchValue').textContent = this.value + '°';
+    });
+    
+    document.getElementById('heading').addEventListener('input', function() {
+      document.getElementById('headingValue').textContent = this.value + '°';
+    });
+    
+    document.getElementById('applySettings').addEventListener('click', function() {
+      settings.layer = document.getElementById('layer').value;
+      settings.pitch = parseInt(document.getElementById('pitch').value);
+      settings.heading = parseInt(document.getElementById('heading').value);
+      updateTileLayer();
+    });
+    
+    // Update info when map moves or zooms
+    map.on('moveend', updateInfo);
+    map.on('zoomend', updateInfo);
+    
+    // Initial info update
+    updateInfo();
+  </script>
+</body>
+</html>
+
