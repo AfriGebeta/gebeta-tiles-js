@@ -11,6 +11,7 @@ class FenceManager {
     this.fenceMarkerList = [];
     this.isDrawingFence = false;
     this.currentFenceColor = this.defaultColor;
+    this.currentFenceBorderColor = null;
     
     // Overlay for current fence
     this.currentFenceOverlayHtml = null;
@@ -193,12 +194,17 @@ class FenceManager {
     }
   }
 
-  addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null, options = null) {
+  addFencePoint(lngLat, customImage = null, onClick = null, addImageMarkerCallback, color = null, options = null, borderColor = null) {
     if (!this.map) throw new Error("Map not initialized.");
 
     // Set the color for this fence if provided
     if (color) {
       this.currentFenceColor = color;
+    }
+    
+    // Set the border color for this fence if provided
+    if (borderColor) {
+      this.currentFenceBorderColor = borderColor;
     }
 
     // If we have a completed fence, start a new fence regardless of click location
@@ -650,7 +656,7 @@ class FenceManager {
         source: fence.sourceId,
         layout: {},
         paint: {
-          'fill-color': style.fillColor || fence.color || this.defaultFenceStyle.fillColor,
+          'fill-color': fence.color || style.fillColor || this.defaultFenceStyle.fillColor,
           'fill-opacity': style.fillOpacity !== undefined ? style.fillOpacity : this.defaultFenceStyle.fillOpacity,
         },
       });
@@ -666,7 +672,7 @@ class FenceManager {
           'line-join': style.lineJoin || this.defaultFenceStyle.lineJoin
         },
         paint: {
-          'line-color': style.borderColor || fence.color || this.defaultFenceStyle.borderColor,
+          'line-color': fence.borderColor || style.borderColor || fence.color || this.defaultFenceStyle.borderColor,
           'line-width': style.borderWidth !== undefined ? style.borderWidth : this.defaultFenceStyle.borderWidth,
           'line-opacity': style.borderOpacity !== undefined ? style.borderOpacity : this.defaultFenceStyle.borderOpacity
         },
@@ -820,6 +826,7 @@ class FenceManager {
       points: pointsToStore,
       markers: [...this.fenceMarkerList],
       color: this.currentFenceColor,
+      borderColor: this.currentFenceBorderColor,
       sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
       layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
       overlayHtml: this.currentFenceOverlayHtml,
@@ -835,6 +842,7 @@ class FenceManager {
     this.fencePoints = [];
     this.fenceMarkerList = [];
     this.currentFenceColor = this.defaultColor;
+    this.currentFenceBorderColor = null;
     if (this.currentFenceOverlayMarker) {
       this.currentFenceOverlayMarker = null;
     }

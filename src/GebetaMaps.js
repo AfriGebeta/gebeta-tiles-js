@@ -401,13 +401,13 @@ class GebetaMaps {
     return { marker, popup };
   }
 
-  addFencePoint(lngLat, customImage = null, onClick = null, color = null, options = null) {
+  addFencePoint(lngLat, customImage = null, onClick = null, color = null, options = null, borderColor = null) {
     if (!this.fenceManager) {
       console.warn("Fence manager not initialized. Fence functionality may not work properly.");
       return;
     }
     
-    this.fenceManager.addFencePoint(lngLat, customImage, onClick, this.addImageMarker.bind(this), color, options);
+    this.fenceManager.addFencePoint(lngLat, customImage, onClick, this.addImageMarker.bind(this), color, options, borderColor);
   }
 
   clearFence() {
@@ -491,6 +491,7 @@ class GebetaMaps {
           name: item.name || `Path ${index + 1}`,
           points: item.points,
           color: item.color,
+          borderColor: item.borderColor,
           overlayHtml: item.overlayHtml,
           overlayOptions: item.overlayOptions
         };
@@ -514,12 +515,12 @@ class GebetaMaps {
 
       item.points.forEach((point, pointIndex) => {
         const opts = pointIndex === 0 ? firstPointOptions : { persistent };
-        this.addFencePoint(point, null, null, color, opts);
+        this.addFencePoint(point, null, null, color, opts, item.borderColor);
       });
 
       if (item.points.length >= 3) {
         // Explicitly add first point again to close visually, then store
-        this.addFencePoint(item.points[0], null, null, color);
+        this.addFencePoint(item.points[0], null, null, color, null, item.borderColor);
         this.storeCurrentFence();
       }
     });
