@@ -619,6 +619,187 @@ class GebetaMaps {
     if (!this.geocodingManager) throw new Error('Geocoding manager not initialized');
     return await this.geocodingManager.reverseGeocode(lat, lon);
   }
+
+  // General overlay methods
+  addHtmlOverlay(lngLat, htmlContent, options = {}) {
+    if (!this.map) throw new Error("Map not initialized.");
+    
+    const {
+      anchor = 'center',
+      offset = [0, 0],
+      closeable = false,
+      closeButtonHtml = '&times;',
+      onClose = null,
+      className = 'gebeta-html-overlay',
+      zIndex = 1000
+    } = options;
+
+    let element;
+    if (typeof htmlContent === 'string') {
+      element = document.createElement('div');
+      element.innerHTML = htmlContent;
+      // If string contains multiple nodes, wrap in a div
+      if (element.childNodes.length === 1 && element.firstChild instanceof HTMLElement) {
+        element = element.firstChild;
+      }
+    } else if (htmlContent instanceof HTMLElement) {
+      element = htmlContent;
+    } else {
+      throw new Error('htmlContent must be a string or HTMLElement');
+    }
+
+    // Add close button if requested
+    if (closeable) {
+      const closeBtn = document.createElement('button');
+      closeBtn.innerHTML = closeButtonHtml;
+      closeBtn.className = 'gebeta-overlay-close';
+      closeBtn.style.cssText = `
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(0,0,0,0.5);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+      `;
+      
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        marker.remove();
+        if (onClose) onClose();
+      });
+      
+      element.style.position = 'relative';
+      element.appendChild(closeBtn);
+    }
+
+    // Add custom class if provided
+    if (className) {
+      element.classList.add(className);
+    }
+
+    // Set z-index
+    element.style.zIndex = zIndex;
+
+    const marker = new maplibregl.Marker({ 
+      element, 
+      anchor,
+      offset
+    })
+      .setLngLat(lngLat)
+      .addTo(this.map);
+
+    return marker;
+  }
+
+  addOverlayWithCoordinates(lngLat, coordinates, options = {}) {
+    if (!this.map) throw new Error("Map not initialized.");
+    
+    const {
+      anchor = 'center',
+      offset = [0, 0],
+      closeable = false,
+      closeButtonHtml = '&times;',
+      onClose = null,
+      className = 'gebeta-coordinates-overlay',
+      zIndex = 1000
+    } = options;
+
+    const element = document.createElement('div');
+    element.innerHTML = `
+      <div style="
+        background: white;
+        border: 2px solid #333;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #111;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        min-width: 120px;
+        text-align: center;
+      ">
+        <div style="font-weight: bold; margin-bottom: 4px;">Coordinates</div>
+        <div>Lat: ${coordinates.lat.toFixed(6)}</div>
+        <div>Lng: ${coordinates.lng.toFixed(6)}</div>
+      </div>
+    `;
+
+    // Add close button if requested
+    if (closeable) {
+      const closeBtn = document.createElement('button');
+      closeBtn.innerHTML = closeButtonHtml;
+      closeBtn.className = 'gebeta-overlay-close';
+      closeBtn.style.cssText = `
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(0,0,0,0.5);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+      `;
+      
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        marker.remove();
+        if (onClose) onClose();
+      });
+      
+      element.style.position = 'relative';
+      element.appendChild(closeBtn);
+    }
+
+    // Add custom class if provided
+    if (className) {
+      element.classList.add(className);
+    }
+
+    // Set z-index
+    element.style.zIndex = zIndex;
+
+    const marker = new maplibregl.Marker({ 
+      element, 
+      anchor,
+      offset
+    })
+      .setLngLat(lngLat)
+      .addTo(this.map);
+
+    return marker;
+  }
+
+  clearAllOverlays() {
+    if (!this.map) return;
+    
+    // Find and remove all overlay markers
+    const overlayElements = this.map.getContainer().querySelectorAll('.gebeta-html-overlay, .gebeta-coordinates-overlay');
+    overlayElements.forEach(element => {
+      const marker = element.closest('.maplibregl-marker');
+      if (marker) {
+        marker.remove();
+      }
+    });
+  }
 }
 
 export default GebetaMaps; 

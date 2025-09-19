@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - HTML Overlays</title>
+  <!-- IMPORTANT: This css file is required for the map to be displayed correctly. -->
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      max-width: 320px;
+      max-height: calc(100vh - 20px);
+      overflow: auto;
+      resize: both;
+      color: #000;
+      box-sizing: border-box;
+    }
+    .control-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      color: #000;
+    }
+    .control-panel button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: pointer;
+      font-size: 14px;
+      color: #000;
+      box-sizing: border-box;
+    }
+    .control-panel button:hover {
+      background: #e9ecef;
+    }
+    .control-panel .info {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #000;
+    }
+    .control-panel .coordinates-input {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .control-panel .coordinates-input input {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 14px;
+      color: #000;
+      box-sizing: border-box;
+    }
+    .control-panel .coordinates-input label {
+      font-size: 12px;
+      color: #555;
+      min-width: 30px;
+    }
+    .control-panel textarea {
+      width: 100%;
+      margin: 5px 0;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: text;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      color: #000;
+      resize: vertical;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .control-panel textarea:focus {
+      background: white;
+      border-color: #007bff;
+      outline: none;
+    }
+    /* Switch styles */
+    .switch { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+    .switch .switch-label { font-size: 12px; color: #000; }
+    .switch input { height: 0; width: 0; visibility: hidden; }
+    .switch .slider {
+      cursor: pointer; width: 42px; height: 22px; background: #cfcfcf; display: inline-block; border-radius: 999px; position: relative;
+    }
+    .switch .slider::after {
+      content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .switch input:checked + .slider { background: #007bff; }
+    .switch input:checked + .slider::after { transform: translateX(20px); }
+    
+    /* Custom overlay styles */
+    .custom-overlay {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      min-width: 150px;
+      text-align: center;
+    }
+    .custom-overlay h4 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+    }
+    .custom-overlay p {
+      margin: 0;
+      opacity: 0.9;
+    }
+    
+    .info-overlay {
+      background: #fff;
+      border: 2px solid #28a745;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      max-width: 200px;
+    }
+    .info-overlay .title {
+      font-weight: bold;
+      color: #28a745;
+      margin-bottom: 5px;
+    }
+    .info-overlay .content {
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  
+  <div class="control-panel">
+    <h3>HTML Overlays</h3>
+    <button onclick="addCoordinatesOverlay()">Add Coordinates Overlay</button>
+    <button onclick="addCustomOverlay()">Add Custom HTML Overlay</button>
+    <button onclick="addInfoOverlay()">Add Info Overlay</button>
+    <button onclick="addCloseableOverlay()">Add Closeable Overlay</button>
+    <button onclick="addMultipleOverlays()">Add Multiple Overlays</button>
+    <button onclick="clearAllOverlays()">Clear All Overlays</button>
+    
+    <div class="coordinates-input">
+      <label>Lat:</label>
+      <input id="lat-input" type="number" step="0.000001" value="9.0161" placeholder="Latitude" />
+    </div>
+    <div class="coordinates-input">
+      <label>Lng:</label>
+      <input id="lng-input" type="number" step="0.000001" value="38.7685" placeholder="Longitude" />
+    </div>
+    
+    <div style="margin: 10px 0;">
+      <label for="customHtmlInput" style="display: block; margin-bottom: 5px; font-size: 12px;">Custom HTML:</label>
+      <textarea id="customHtmlInput" rows="4" placeholder='Enter custom HTML for overlay...'>&lt;div class="custom-overlay"&gt;
+  &lt;h4&gt;Custom Overlay&lt;/h4&gt;
+  &lt;p&gt;This is a custom HTML overlay!&lt;/p&gt;
+&lt;/div&gt;</textarea>
+      <button onclick="addCustomHtmlOverlay()" style="margin-top: 5px;">Add Custom HTML</button>
+    </div>
+    
+    <label class="switch" for="closeable-toggle">
+      <input type="checkbox" id="closeable-toggle" />
+      <span class="slider"></span>
+      <span class="switch-label">Make overlays closeable</span>
+    </label>
+    
+    <div class="info">
+      <strong>Instructions:</strong><br>
+      • Click on the map to add overlays at that location<br>
+      • Use the coordinate inputs to set specific positions<br>
+      • Try different overlay types and styles<br>
+      • Toggle closeable overlays to add close buttons<br>
+      • Custom HTML overlays support full HTML/CSS
+    </div>
+  </div>
+
+  <!-- IMPORTANT: load the gebeta-maps.umd.js file from the tiles.gebeta.app cdn server. -->
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <!-- this is just a utility to load the env for all examples -->
+  <script src="config.js"></script>
+
+<script>
+  let gebetaMap;
+  let map;
+  let overlayCounter = 0;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const config = loadConfig();
+    const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+    
+    gebetaMap = new GebetaMaps({ 
+      apiKey: MY_GEBETA_API_KEY
+    });
+    
+    map = gebetaMap.init({
+      container: 'map',
+      center: [38.7685, 9.0161],
+      zoom: 15,
+    });
+
+    map.on('load', () => {
+      gebetaMap.addNavigationControls();
+    });
+
+    // Add overlay on map click
+    gebetaMap.on('click', (e) => {
+      const lngLat = [e.lngLat.lng, e.lngLat.lat];
+      const closeable = document.getElementById('closeable-toggle').checked;
+      
+      // Add a simple coordinates overlay on click
+      gebetaMap.addOverlayWithCoordinates(lngLat, { lat: e.lngLat.lat, lng: e.lngLat.lng }, {
+        closeable: closeable,
+        anchor: 'bottom',
+        onClose: () => console.log('Overlay closed!')
+      });
+    });
+
+    map.on('error', (e) => {
+      const mapContainer = document.getElementById('map');
+      if (mapContainer) {
+        mapContainer.innerHTML = `<div style="padding: 20px; text-align: center;">
+          <h2>Could not load map style</h2>
+          <p>Please ensure the style server at <code>https://tiles.gebeta.app</code> is reachable.</p>
+        </div>`;
+      }
+    });
+  });
+
+  function getCurrentCoordinates() {
+    const lat = parseFloat(document.getElementById('lat-input').value) || 9.0161;
+    const lng = parseFloat(document.getElementById('lng-input').value) || 38.7685;
+    return [lng, lat];
+  }
+
+  function addCoordinatesOverlay() {
+    if (!gebetaMap) return;
+    
+    const [lng, lat] = getCurrentCoordinates();
+    const closeable = document.getElementById('closeable-toggle').checked;
+    
+    gebetaMap.addOverlayWithCoordinates([lng, lat], { lat, lng }, {
+      closeable: closeable,
+      anchor: 'bottom',
+      onClose: () => console.log('Coordinates overlay closed!')
+    });
+  }
+
+  function addCustomOverlay() {
+    if (!gebetaMap) return;
+    
+    const [lng, lat] = getCurrentCoordinates();
+    const closeable = document.getElementById('closeable-toggle').checked;
+    
+    const customHtml = `
+      <div class="custom-overlay">
+        <h4>Custom Overlay #${++overlayCounter}</h4>
+        <p>This is a custom HTML overlay with gradient background!</p>
+        <p style="font-size: 11px; margin-top: 8px; opacity: 0.8;">
+          Lat: ${lat.toFixed(6)}<br>
+          Lng: ${lng.toFixed(6)}
+        </p>
+      </div>
+    `;
+    
+    gebetaMap.addHtmlOverlay([lng, lat], customHtml, {
+      closeable: closeable,
+      anchor: 'bottom',
+      onClose: () => console.log('Custom overlay closed!')
+    });
+  }
+
+  function addInfoOverlay() {
+    if (!gebetaMap) return;
+    
+    const [lng, lat] = getCurrentCoordinates();
+    const closeable = document.getElementById('closeable-toggle').checked;
+    
+    const infoHtml = `
+      <div class="info-overlay">
+        <div class="title">📍 Location Info</div>
+        <div class="content">
+          This is an information overlay with custom styling. 
+          It can contain any HTML content you want!
+        </div>
+      </div>
+    `;
+    
+    gebetaMap.addHtmlOverlay([lng, lat], infoHtml, {
+      closeable: closeable,
+      anchor: 'top',
+      onClose: () => console.log('Info overlay closed!')
+    });
+  }
+
+  function addCloseableOverlay() {
+    if (!gebetaMap) return;
+    
+    const [lng, lat] = getCurrentCoordinates();
+    
+    const closeableHtml = `
+      <div style="
+        background: #ff6b6b;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        min-width: 120px;
+        text-align: center;
+      ">
+        <strong>Closeable Overlay</strong><br>
+        <small>Click the × to close</small>
+      </div>
+    `;
+    
+    gebetaMap.addHtmlOverlay([lng, lat], closeableHtml, {
+      closeable: true,
+      anchor: 'center',
+      onClose: () => {
+        console.log('Closeable overlay was closed!');
+        alert('Overlay closed successfully!');
+      }
+    });
+  }
+
+  function addCustomHtmlOverlay() {
+    if (!gebetaMap) return;
+    
+    const [lng, lat] = getCurrentCoordinates();
+    const customHtml = document.getElementById('customHtmlInput').value;
+    const closeable = document.getElementById('closeable-toggle').checked;
+    
+    if (!customHtml.trim()) {
+      alert('Please enter some HTML content first!');
+      return;
+    }
+    
+    try {
+      gebetaMap.addHtmlOverlay([lng, lat], customHtml, {
+        closeable: closeable,
+        anchor: 'bottom',
+        onClose: () => console.log('Custom HTML overlay closed!')
+      });
+    } catch (error) {
+      alert('Error creating overlay: ' + error.message);
+    }
+  }
+
+  function addMultipleOverlays() {
+    if (!gebetaMap) return;
+    
+    const baseLng = 38.7685;
+    const baseLat = 9.0161;
+    const closeable = document.getElementById('closeable-toggle').checked;
+    
+    // Add multiple overlays in a pattern
+    const positions = [
+      { lng: baseLng, lat: baseLat, label: 'Center' },
+      { lng: baseLng + 0.01, lat: baseLat, label: 'East' },
+      { lng: baseLng - 0.01, lat: baseLat, label: 'West' },
+      { lng: baseLng, lat: baseLat + 0.01, label: 'North' },
+      { lng: baseLng, lat: baseLat - 0.01, label: 'South' }
+    ];
+    
+    positions.forEach((pos, index) => {
+      const overlayHtml = `
+        <div style="
+          background: hsl(${index * 72}, 70%, 60%);
+          color: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          text-align: center;
+          min-width: 80px;
+        ">
+          <strong>${pos.label}</strong><br>
+          <small>Overlay ${index + 1}</small>
+        </div>
+      `;
+      
+      gebetaMap.addHtmlOverlay([pos.lng, pos.lat], overlayHtml, {
+        closeable: closeable,
+        anchor: 'center',
+        onClose: () => console.log(`${pos.label} overlay closed!`)
+      });
+    });
+  }
+
+  function clearAllOverlays() {
+    if (!gebetaMap) return;
+    gebetaMap.clearAllOverlays();
+    console.log('All overlays cleared');
+  }
+</script>
+
+</body>
+</html>
