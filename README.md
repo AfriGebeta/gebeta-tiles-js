@@ -104,11 +104,15 @@ gebetaMap.initFenceManager('#ff6600'); // Orange default color
 - `addNavigationControls(position)` - Add zoom/pan controls
 
 #### Markers
-- `addImageMarker(lngLat, imageUrl, size, onClick, zIndex, popupHtml)` - Add a custom marker. Optionally attach a popup with HTML content.
+- `addImageMarker(lngLat, imageUrl, size, onClick, zIndex, popupHtml, options)` - Add a custom marker. Optionally attach a popup with HTML content. You may pass `options.id` to set a custom marker ID. Returns `{ marker, popup, id }`.
+- `removeMarker(markerId)` - Remove a specific marker by its ID. Returns `true` if successful, `false` if marker not found.
 - `clearAllMarkers()` - Remove all markers from the map
 
 #### Fence Drawing
-- `addFencePoint(lngLat, customImage, onClick, color)` - Add a point to the current fence with optional custom color
+- `addFencePoint(lngLat, customImage, onClick, color, options)` - Add a point to the current fence with optional custom color. You may pass `options.markerId` for the first point marker ID.
+- `renderFencesFromArray(fences, options)` - Supports fence objects with `{ id, name, points, color, borderColor, overlayHtml, overlayOptions, markerId }`. The `id` is used as the fence ID.
+- `removeFence(fenceId)` - Remove a specific fence by its ID. Returns `true` if successful, `false` if fence not found.
+- `removeFenceByName(name)` - Remove a specific fence by its name. Returns `true` if successful, `false` if fence not found.
 - `clearFence()` - Clear the current fence being drawn
 - `clearAllFences()` - Clear all fences on the map
 - `isFenceCompleted()` - Check if the current fence is complete

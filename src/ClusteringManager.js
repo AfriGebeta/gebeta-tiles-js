@@ -43,8 +43,11 @@ class ClusteringManager {
   }
 
   removeMarker(markerId) {
+    const before = this.markers.length;
     this.markers = this.markers.filter(m => m.id !== markerId);
+    const removed = before !== this.markers.length;
     this.updateClustering();
+    return removed;
   }
 
   clearAllMarkers() {

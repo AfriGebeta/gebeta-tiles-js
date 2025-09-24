@@ -18,6 +18,7 @@ class FenceManager {
     this.currentFenceOverlayOptions = {};
     this.currentFenceOverlayMarker = null;
     this.currentFencePersistent = false;
+    this.currentFenceName = null;
     
     // Controls whether proximity to the first point should auto-close the fence
     this.disableProximityClosure = false;
@@ -233,6 +234,10 @@ class FenceManager {
       this.currentFenceOverlayHtml = options.overlayHtml;
       this.currentFenceOverlayOptions = options.overlayOptions || {};
     }
+    // Capture optional fence name for storage/removal by name
+    if (options && options.name && !this.currentFenceName) {
+      this.currentFenceName = options.name;
+    }
     // If options specify persistence for this fence
     if (options && typeof options.persistent === 'boolean') {
       this.currentFencePersistent = options.persistent;
@@ -254,7 +259,9 @@ class FenceManager {
         try { userOnClick(clickLngLat, marker, event); } catch (_) {}
       }
     };
-    const markerResult = addImageMarkerCallback(lngLat, markerImage, [30, 30], wrappedOnClick);
+    // Pass through optional marker id via options.markerId if provided
+    const markerOptions = (options && options.markerId) ? { id: options.markerId } : {};
+    const markerResult = addImageMarkerCallback(lngLat, markerImage, [30, 30], wrappedOnClick, 10, null, markerOptions);
     
     // Store fence markers separately (only for non-clustered markers)
     if (!this.clusteringEnabled) {
@@ -488,6 +495,52 @@ class FenceManager {
 
     // Finally reset points
     this.fencePoints = [];
+  }
+
+  removeFence(fenceId) {
+    if (!this.map) return false;
+
+    const targetId = fenceId != null ? String(fenceId) : fenceId;
+    const fenceIndex = this.fences.findIndex(fence => String(fence.id) === targetId);
+    if (fenceIndex === -1) return false;
+
+    const fence = this.fences[fenceIndex];
+
+    // Remove from map
+    if (this.map.getSource(fence.sourceId)) {
+      // Remove border layer if it exists
+      const borderLayerId = `${fence.layerId}-border`;
+      if (this.map.getLayer(borderLayerId)) this.map.removeLayer(borderLayerId);
+      this.map.removeLayer(fence.layerId);
+      this.map.removeSource(fence.sourceId);
+    }
+    
+    // Remove fence markers
+    if (!this.clusteringEnabled) {
+      fence.markers.forEach(marker => marker.remove());
+    }
+
+    // Remove overlay marker
+    if (fence.overlayMarker) {
+      fence.overlayMarker.remove();
+      fence.overlayMarker = null;
+    }
+
+    // Remove from array
+    this.fences.splice(fenceIndex, 1);
+    
+    console.debug(`Fence ${fenceId} removed`);
+    return true;
+  }
+
+  removeFenceByName(name) {
+    if (!this.map) return false;
+
+    const fenceIndex = this.fences.findIndex(fence => fence.name === name);
+    if (fenceIndex === -1) return false;
+
+    const fence = this.fences[fenceIndex];
+    return this.removeFence(fence.id);
   }
 
   clearAllFences() {
@@ -800,7 +853,7 @@ class FenceManager {
 
   // Public API: store the current fence as a completed fence without requiring a click outside.
   // Ensures the polygon is closed, stores it, resets current state, and redraws all fences.
-  storeCurrentFence() {
+  storeCurrentFence(customId = null) {
     if (this.fencePoints.length < 3) return null;
 
     // Prepare a closed copy of points without mutating existing vertices
@@ -821,14 +874,16 @@ class FenceManager {
       this.map.removeSource(this.fenceSourceId);
     }
 
+    const nextId = (customId !== null && customId !== undefined) ? customId : this.currentFenceId++;
     const completedFence = {
-      id: this.currentFenceId++,
+      id: nextId,
+      name: this.currentFenceName || null,
       points: pointsToStore,
       markers: [...this.fenceMarkerList],
       color: this.currentFenceColor,
       borderColor: this.currentFenceBorderColor,
-      sourceId: `${this.fenceSourceId}-${this.currentFenceId}`,
-      layerId: `${this.fenceLayerId}-${this.currentFenceId}`,
+      sourceId: `${this.fenceSourceId}-${nextId}`,
+      layerId: `${this.fenceLayerId}-${nextId}`,
       overlayHtml: this.currentFenceOverlayHtml,
       overlayOptions: { ...this.currentFenceOverlayOptions },
       overlayMarker: this.currentFenceOverlayMarker || null,
@@ -849,6 +904,7 @@ class FenceManager {
     this.currentFenceOverlayHtml = null;
     this.currentFenceOverlayOptions = {};
     this.currentFencePersistent = false;
+    this.currentFenceName = null;
 
     // Redraw everything and ensure overlay marker is placed for the stored fence
     this.drawAllFences();

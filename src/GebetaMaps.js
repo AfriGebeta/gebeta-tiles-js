@@ -349,12 +349,12 @@ class GebetaMaps {
     }, 0);
   }
 
-  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10, popupHtml = null) {
+  addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10, popupHtml = null, options = {}) {
     if (!this.map) throw new Error("Map not initialized.");
 
     // If clustering is enabled, add to clustering manager
     if (this.clustering.enabled && this.clusteringManager) {
-      const markerId = `marker_${Date.now()}_${Math.random()}`;
+      const markerId = (options && options.id) ? options.id : `marker_${Date.now()}_${Math.random()}`;
       const marker = {
         id: markerId,
         lngLat: lngLat,
@@ -369,6 +369,7 @@ class GebetaMaps {
     }
 
     // Traditional marker approach (non-clustered)
+    const markerId = (options && options.id) ? options.id : `marker_${Date.now()}_${Math.random()}`;
     const el = document.createElement('div');
     el.style.backgroundImage = `url('${imageUrl}')`;
     el.style.backgroundSize = 'contain';
@@ -381,6 +382,9 @@ class GebetaMaps {
     const marker = new maplibregl.Marker({ element: el })
       .setLngLat(lngLat)
       .addTo(this.map);
+
+    // Add ID to marker for removal
+    marker.id = markerId;
 
     let popup = null;
     if (popupHtml) {
@@ -398,7 +402,7 @@ class GebetaMaps {
     }
 
     this.markerList.push(marker);
-    return { marker, popup };
+    return { marker, popup, id: markerId };
   }
 
   addFencePoint(lngLat, customImage = null, onClick = null, color = null, options = null, borderColor = null) {
@@ -413,6 +417,16 @@ class GebetaMaps {
   clearFence() {
     if (!this.fenceManager) return;
     this.fenceManager.clearFence();
+  }
+
+  removeFence(fenceId) {
+    if (!this.fenceManager) return false;
+    return this.fenceManager.removeFence(fenceId);
+  }
+
+  removeFenceByName(name) {
+    if (!this.fenceManager) return false;
+    return this.fenceManager.removeFenceByName(name);
   }
 
   clearAllFences() {
@@ -460,9 +474,9 @@ class GebetaMaps {
     this.fenceManager.setFenceOverlay(overlayHtml, options);
   }
 
-  storeCurrentFence() {
+  storeCurrentFence(customId = null) {
     if (!this.fenceManager) return null;
-    return this.fenceManager.storeCurrentFence();
+    return this.fenceManager.storeCurrentFence(customId);
   }
 
   renderFencesFromArray(fences, options = {}) {
@@ -484,16 +498,18 @@ class GebetaMaps {
 
     const normalizeItem = (item, index) => {
       if (Array.isArray(item)) {
-        return { name: `Path ${index + 1}`, points: item };
+        return { id: null, name: `Path ${index + 1}`, points: item };
       }
       if (item && Array.isArray(item.points)) {
         return {
+          id: item.id || null,
           name: item.name || `Path ${index + 1}`,
           points: item.points,
           color: item.color,
           borderColor: item.borderColor,
           overlayHtml: item.overlayHtml,
-          overlayOptions: item.overlayOptions
+          overlayOptions: item.overlayOptions,
+          markerId: item.markerId
         };
       }
       return null;
@@ -511,17 +527,29 @@ class GebetaMaps {
       const overlayHtml = item.overlayHtml || (item.name
         ? `<div style="padding:4px 8px;background:#fff;border:2px solid ${color};border-radius:6px;font-size:12px;color:#111;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2);transform:translateY(-6px);">${item.name}</div>`
         : null);
-      const firstPointOptions = overlayHtml ? { overlayHtml, overlayOptions: { anchor: overlayAnchor }, persistent } : { persistent };
+      // Do NOT set persistent during the drawing phase to prevent auto-store on close
+      const firstPointOptions = overlayHtml ? { overlayHtml, overlayOptions: { anchor: overlayAnchor } } : {};
+      // Ensure name is carried in options for storage
+      if (item.name) {
+        firstPointOptions.name = item.name;
+      }
 
       item.points.forEach((point, pointIndex) => {
-        const opts = pointIndex === 0 ? firstPointOptions : { persistent };
+        const opts = pointIndex === 0 ? firstPointOptions : {};
+        // Pass optional markerId for first point if provided via item.markerId
+        if (pointIndex === 0 && item.markerId) {
+          opts.markerId = item.markerId;
+        }
         this.addFencePoint(point, null, null, color, opts, item.borderColor);
       });
 
       if (item.points.length >= 3) {
-        // Explicitly add first point again to close visually, then store
-        this.addFencePoint(item.points[0], null, null, color, null, item.borderColor);
-        this.storeCurrentFence();
+        // Set persistence now, just before store, to avoid auto-store earlier
+        if (typeof persistent === 'boolean' && this.fenceManager) {
+          this.fenceManager.currentFencePersistent = persistent;
+        }
+        // Allow optional fence id via item.id
+        this.storeCurrentFence(item.id);
       }
     });
 
@@ -565,6 +593,28 @@ class GebetaMaps {
   updateRouteStyle(style = {}) {
     if (!this.directionsManager) return;
     this.directionsManager.updateRouteStyle(style);
+  }
+
+  removeMarker(markerId) {
+    if (!this.map) return false;
+
+    // Handle clustered markers
+    if (this.clustering.enabled && this.clusteringManager) {
+      return this.clusteringManager.removeMarker(markerId);
+    }
+
+    // Handle regular markers
+    const markerIndex = this.markerList.findIndex(marker => marker && marker.id === markerId);
+    if (markerIndex !== -1) {
+      const marker = this.markerList[markerIndex];
+      if (marker && marker.remove) {
+        marker.remove();
+      }
+      this.markerList.splice(markerIndex, 1);
+      return true;
+    }
+
+    return false;
   }
 
   clearAllMarkers() {

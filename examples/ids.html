@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Custom IDs (Markers & Fences)</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    .panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: #fff; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.1); max-width: 340px; color: #000; }
+    .panel h3 { margin: 0 0 8px 0; font-size: 16px; }
+    .panel button { display: inline-block; margin: 4px 4px 4px 0; padding: 8px 10px; font-size: 13px; }
+    .row { margin: 8px 0; font-size: 12px; }
+    input[type="text"] { padding: 6px 8px; font-size: 12px; width: 160px; }
+    code { background: #f5f5f5; padding: 1px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+
+  <div class="panel">
+    <h3>Custom IDs Demo</h3>
+    <div class="row"><strong>Markers</strong></div>
+    <div class="row">
+      <input id="marker-id" type="text" value="marker-demo-1" />
+      <button onclick="addCustomIdMarker()">Add Marker (with id)</button>
+      <button onclick="removeCustomIdMarker()">Remove Marker (by id)</button>
+    </div>
+    <hr>
+    <div class="row"><strong>Fences</strong></div>
+    <div class="row">
+      <input id="fence-id" type="text" value="fence-demo-1" />
+      <button onclick="renderFenceWithId()">Render Fence (with id)</button>
+      <button onclick="removeFenceById()">Remove Fence (by id)</button>
+    </div>
+    <div class="row">
+      <input id="fence-name" type="text" value="Demo Zone" />
+      <button onclick="removeFenceByName()">Remove Fence (by name)</button>
+    </div>
+    <div class="row">
+      <button onclick="listFences()">List Fences (console)</button>
+    </div>
+    <div class="row">
+      Hint: See README for <code>addImageMarker(..., { id })</code> and <code>renderFencesFromArray([{ id, markerId }])</code>.
+    </div>
+  </div>
+
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <script src="config.js"></script>
+
+  <script>
+    let gebetaMap;
+    let map;
+    let lastMarkerId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const { GEBETA_API_KEY } = loadConfig();
+      gebetaMap = new GebetaMaps({ apiKey: GEBETA_API_KEY });
+
+      map = gebetaMap.init({
+        container: 'map',
+        center: [38.7685, 9.0161],
+        zoom: 15,
+      });
+
+      map.on('load', () => {
+        gebetaMap.addNavigationControls();
+      });
+    });
+
+    // MARKERS WITH CUSTOM ID
+    function addCustomIdMarker() {
+      if (!gebetaMap) return;
+      const input = document.getElementById('marker-id');
+      const id = (input && input.value) ? input.value : `marker-${Date.now()}`;
+      const lngLat = [38.7685 + (Math.random() - 0.5) * 0.01, 9.0161 + (Math.random() - 0.5) * 0.01];
+      const result = gebetaMap.addImageMarker(lngLat, 'https://cdn-icons-png.flaticon.com/512/1483/1483336.png', [28, 28], null, 10, null, { id });
+      lastMarkerId = id;
+      console.log('Added marker with id:', id, result);
+    }
+
+    function removeCustomIdMarker() {
+      if (!gebetaMap) return;
+      const input = document.getElementById('marker-id');
+      const id = (input && input.value) ? input.value : lastMarkerId;
+      if (!id) { console.warn('No marker id provided'); return; }
+      const ok = gebetaMap.removeMarker(id);
+      console.log(ok ? `Removed marker: ${id}` : `Marker not found: ${id}`);
+    }
+
+    // FENCES WITH CUSTOM ID (and first-point markerId)
+    function renderFenceWithId() {
+      if (!gebetaMap) return;
+      const fidInput = document.getElementById('fence-id');
+      const nidInput = document.getElementById('fence-name');
+      const fenceId = (fidInput && fidInput.value) ? fidInput.value.trim() : `fence-${Date.now()}`;
+      const fenceName = (nidInput && nidInput.value) ? nidInput.value.trim() : 'Demo Zone';
+
+      const center = [38.7685, 9.0161];
+      const dx = 0.0025, dy = 0.0020;
+      const polygon = [
+        [center[0] - dx, center[1] - dy],
+        [center[0] + dx, center[1] - dy],
+        [center[0] + dx, center[1] + dy],
+        [center[0] - dx, center[1] + dy],
+        [center[0] - dx, center[1] - dy]
+      ];
+
+      const data = [{
+        id: fenceId,
+        name: fenceName,
+        color: '#ff6600',
+        borderColor: '#ff6600',
+        markerId: `${fenceId}-first-point`,
+        points: polygon
+      }];
+
+      gebetaMap.renderFencesFromArray(data, { clearExisting: false, autoColor: false, overlayAnchor: 'bottom', persistent: true });
+      // ensure input reflects actual id used
+      if (fidInput) fidInput.value = String(fenceId);
+    }
+
+    function removeFenceById() {
+      if (!gebetaMap) return;
+      const input = document.getElementById('fence-id');
+      const id = (input && input.value) ? input.value.trim() : null;
+      if (!id) { console.warn('No fence id provided'); return; }
+      const ok = gebetaMap.removeFence(id);
+      console.log(ok ? `Removed fence: ${id}` : `Fence not found: ${id}`);
+    }
+
+    function removeFenceByName() {
+      if (!gebetaMap) return;
+      const input = document.getElementById('fence-name');
+      const name = (input && input.value) ? input.value : null;
+      if (!name) { console.warn('No fence name provided'); return; }
+      const ok = gebetaMap.removeFenceByName(name);
+      console.log(ok ? `Removed fence: ${name}` : `Fence not found: ${name}`);
+    }
+
+    function listFences() {
+      if (!gebetaMap) return;
+      const fences = gebetaMap.getFences();
+      console.table(fences.map(f => ({ id: String(f.id), name: f.name, sourceId: f.sourceId, layerId: f.layerId })));
+    }
+  </script>
+</body>
+</html>
+
+
