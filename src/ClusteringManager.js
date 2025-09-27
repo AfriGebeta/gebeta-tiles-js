@@ -217,6 +217,11 @@ class ClusteringManager {
     el.style.height = `${marker.size[1]}px`;
     el.style.cursor = 'pointer';
 
+    // Prevent bubbling to map click handlers even if no custom onClick is set
+    el.addEventListener('click', (e) => { e.stopPropagation(); });
+    el.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+    el.addEventListener('touchstart', (e) => { e.stopPropagation(); });
+
     const mapMarker = new maplibregl.Marker({ element: el })
       .setLngLat(marker.lngLat)
       .addTo(this.map);

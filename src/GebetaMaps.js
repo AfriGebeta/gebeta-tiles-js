@@ -379,6 +379,18 @@ class GebetaMaps {
     el.style.cursor = 'pointer';
     el.style.zIndex = zIndex;
 
+    // Always stop propagation so map-level click handlers don't fire
+    // when interacting with the marker element or its popup
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    el.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+    });
+    el.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+    });
+
     const marker = new maplibregl.Marker({ element: el })
       .setLngLat(lngLat)
       .addTo(this.map);
