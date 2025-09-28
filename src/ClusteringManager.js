@@ -226,6 +226,29 @@ class ClusteringManager {
       .setLngLat(marker.lngLat)
       .addTo(this.map);
 
+    // Attach popup if provided
+    if (marker.popupHtml) {
+      let popup = new maplibregl.Popup({ offset: 18, closeOnClick: false });
+      if (typeof marker.popupHtml === 'string') {
+        popup.setHTML(marker.popupHtml);
+      } else if (marker.popupHtml instanceof HTMLElement) {
+        if (typeof popup.setDOMContent === 'function') {
+          popup.setDOMContent(marker.popupHtml);
+        } else {
+          popup.setHTML(marker.popupHtml.outerHTML);
+        }
+      } else {
+        popup.setHTML(String(marker.popupHtml));
+      }
+      mapMarker.setPopup(popup);
+      // Open immediately in clustered rendering path
+      if (popup && typeof popup.addTo === 'function') {
+        setTimeout(() => {
+          try { popup.setLngLat(marker.lngLat).addTo(this.map); } catch (_) {}
+        }, 0);
+      }
+    }
+
     // Store reference to remove later
     this.renderedMarkers.set(marker.id, mapMarker);
 
@@ -236,6 +259,9 @@ class ClusteringManager {
         marker.onClick(marker.lngLat, mapMarker, e);
       });
     }
+
+    // Auto-open popup if one was attached
+    // No extra auto-open here; handled above when attaching
   }
 }
 

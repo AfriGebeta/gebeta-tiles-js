@@ -225,17 +225,18 @@
       gebetaMap.addNavigationControls();
     });
 
-    // Add overlay on map click
+    // Minimal click example matching your snippet (no reverse geocode)
     gebetaMap.on('click', (e) => {
-      const lngLat = [e.lngLat.lng, e.lngLat.lat];
-      const closeable = document.getElementById('closeable-toggle').checked;
+      const lat = e.lngLat.lat;
+      const lng = e.lngLat.lng;
       
-      // Add a simple coordinates overlay on click
-      gebetaMap.addOverlayWithCoordinates(lngLat, { lat: e.lngLat.lat, lng: e.lngLat.lng }, {
-        closeable: closeable,
-        anchor: 'bottom',
-        onClose: () => console.log('Overlay closed!')
-      });
+      // Keep only one marker by id
+      gebetaMap.removeMarker('marker');
+      
+      const name = `Selected Location`;
+      const popupHtml = `<div style="font-size:14px;"><strong>${name}</strong><br>Lat: ${lat}, Lng: ${lng}</div>`;
+      const icon = 'https://cdn-icons-png.flaticon.com/512/484/484167.png';
+      gebetaMap.addImageMarker([lng, lat], icon, [28, 28], null, 10, popupHtml, { id: 'marker' });
     });
 
     map.on('error', (e) => {

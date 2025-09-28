@@ -400,9 +400,25 @@ class GebetaMaps {
 
     let popup = null;
     if (popupHtml) {
-      popup = new maplibregl.Popup({ offset: 18 })
-        .setHTML(popupHtml);
+      popup = new maplibregl.Popup({ offset: 18, closeOnClick: false });
+      if (typeof popupHtml === 'string') {
+        popup.setHTML(popupHtml);
+      } else if (popupHtml instanceof HTMLElement) {
+        if (typeof popup.setDOMContent === 'function') {
+          popup.setDOMContent(popupHtml);
+        } else {
+          popup.setHTML(popupHtml.outerHTML);
+        }
+      } else {
+        popup.setHTML(String(popupHtml));
+      }
       marker.setPopup(popup);
+      // Open the popup by default without depending on click bubbling
+      if (popup && typeof popup.addTo === 'function') {
+        setTimeout(() => {
+          try { popup.setLngLat(lngLat).addTo(this.map); } catch (_) {}
+        }, 0);
+      }
     }
 
     // Add click handler if provided
