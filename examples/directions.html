@@ -220,7 +220,8 @@
     </div>
   </div>
 
-  <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script>
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script src="../dist/gebeta-maps.umd.js"></script>
   <!-- this is just a utility to load the env for all examples -->
   <script src="config.js"></script>
 
@@ -348,8 +349,8 @@
 
     function setOriginMarker(lat, lng) {
         // Remove existing origin marker
-        if (originMarker) {
-            originMarker.remove();
+        if (originMarker && originMarker.marker) {
+            originMarker.marker.remove();
         }
         
         // Create new origin marker
@@ -373,8 +374,8 @@
 
     function setDestinationMarker(lat, lng) {
         // Remove existing destination marker
-        if (destinationMarker) {
-            destinationMarker.remove();
+        if (destinationMarker && destinationMarker.marker) {
+            destinationMarker.marker.remove();
         }
         
         // Create new destination marker
@@ -435,19 +436,23 @@
 
     function clearMarkers() {
         // Clear origin marker
-        if (originMarker) {
-            originMarker.remove();
+        if (originMarker && originMarker.marker) {
+            originMarker.marker.remove();
             originMarker = null;
         }
         
         // Clear destination marker
-        if (destinationMarker) {
-            destinationMarker.remove();
+        if (destinationMarker && destinationMarker.marker) {
+            destinationMarker.marker.remove();
             destinationMarker = null;
         }
         
         // Clear waypoint markers
-        waypointMarkers.forEach(marker => marker.remove());
+        waypointMarkers.forEach(markerObj => {
+            if (markerObj && markerObj.marker) {
+                markerObj.marker.remove();
+            }
+        });
         waypointMarkers = [];
         
         // Clear coordinates
@@ -494,8 +499,16 @@
                 originIcon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
                 destinationIcon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
                 waypointIcon: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
-                showInstructions: showInstructions
+                showInstructions: showInstructions,
+                routeStyle: {
+                    color: '#007cbf',  // Blue color
+                    width: 4,          // 4px width
+                    opacity: 0.8,      // 80% opacity
+                    lineJoin: 'round', // Round line joins
+                    lineCap: 'round'   // Round line caps
+                }
             });
+            
             
             // Show route information
             displayRouteInfo(routeData);
@@ -557,8 +570,8 @@
 
     function removeWaypoint(index) {
         // Remove marker from map
-        if (waypointMarkers[index]) {
-            waypointMarkers[index].remove();
+        if (waypointMarkers[index] && waypointMarkers[index].marker) {
+            waypointMarkers[index].marker.remove();
         }
         
         // Remove from arrays
@@ -623,6 +636,8 @@
         getDirections();
     }
 
+    let currentRouteStyleIndex = 0;
+    
     function toggleRouteStyle() {
         if (!gebetaMap) return;
         
@@ -633,15 +648,14 @@
             { color: '#ffc107', width: 3, opacity: 0.8 }
         ];
         
-        const currentStyle = gebetaMap.getCurrentRoute() ? 
-            gebetaMap.getCurrentRoute().style || 0 : 0;
-        const nextStyle = (currentStyle + 1) % styles.length;
+        currentRouteStyleIndex = (currentRouteStyleIndex + 1) % styles.length;
+        const nextStyle = styles[currentRouteStyleIndex];
         
-        gebetaMap.updateRouteStyle(styles[nextStyle]);
+        gebetaMap.updateRouteStyle(nextStyle);
         
         const colorNames = ['Blue', 'Green', 'Red', 'Yellow'];
-        console.log(`Route style changed to: ${colorNames[nextStyle]}`);
-        alert(`Route style changed to: ${colorNames[nextStyle]}`);
+        console.log(`Route style changed to: ${colorNames[currentRouteStyleIndex]}`);
+        alert(`Route style changed to: ${colorNames[currentRouteStyleIndex]}`);
     }
 
     function parseCoordinates(coordString) {

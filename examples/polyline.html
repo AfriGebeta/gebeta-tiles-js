@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Polyline Example</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+    }
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      max-width: 350px;
+    }
+    .control-panel h3 {
+      margin: 0 0 15px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    .control-panel button {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #007cbf;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .control-panel button:hover {
+      background: #005a8b;
+    }
+    .control-panel button.secondary {
+      background: #6c757d;
+    }
+    .control-panel button.secondary:hover {
+      background: #5a6268;
+    }
+    .info {
+      margin-top: 15px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="control-panel">
+    <h3>Polyline Example</h3>
+    <button onclick="setPoint1()">Set Point 1 (Click Map)</button>
+    <button onclick="setPoint2()">Set Point 2 (Click Map)</button>
+    <button onclick="drawPolyline()" class="secondary">Draw Polyline</button>
+    <button onclick="clearPolyline()" class="secondary">Clear Polyline</button>
+    <div class="info">
+      <strong>Instructions:</strong><br>
+      1. Click "Set Point 1" then click on map<br>
+      2. Click "Set Point 2" then click on map<br>
+      3. Click "Draw Polyline" to draw line between points<br>
+      4. Use "Clear Polyline" to remove the line
+    </div>
+    <div id="status" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+  </div>
+
+  <!-- IMPORTANT: load the gebeta-maps.umd.js file from the tiles.gebeta.app cdn server. -->
+  <!-- <script type="module" src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <!-- this is just a utility to load the env for all examples -->
+  <script src="config.js"></script>
+
+  <script>
+    let gebetaMap;
+    let map;
+    let point1 = null;
+    let point2 = null;
+    let point1Marker = null;
+    let point2Marker = null;
+    let currentMode = null; // 'point1' or 'point2'
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const config = loadConfig();
+      const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+      
+      gebetaMap = new GebetaMaps({ 
+        apiKey: MY_GEBETA_API_KEY
+      });
+
+      map = gebetaMap.init({
+        container: 'map',
+        center: [38.7685, 9.0161],
+        zoom: 12,
+      });
+
+      map.on('load', () => {
+        gebetaMap.addNavigationControls();
+        initPolylineLayer();
+        updateStatus();
+      });
+
+      // Handle map clicks for setting points
+      map.on('click', (e) => {
+        if (currentMode === 'point1') {
+          setPoint1At(e.lngLat);
+        } else if (currentMode === 'point2') {
+          setPoint2At(e.lngLat);
+        }
+      });
+    });
+
+    function initPolylineLayer() {
+      // Add source for polyline
+      if (!map.getSource('polyline')) {
+        map.addSource('polyline', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: []
+            }
+          }
+        });
+
+        // Add polyline layer
+        map.addLayer({
+          id: 'polyline',
+          type: 'line',
+          source: 'polyline',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#007cbf',
+            'line-width': 4,
+            'line-opacity': 0.8
+          }
+        });
+      }
+    }
+
+    function setPoint1() {
+      currentMode = 'point1';
+      updateStatus('Click on the map to set Point 1');
+    }
+
+    function setPoint2() {
+      currentMode = 'point2';
+      updateStatus('Click on the map to set Point 2');
+    }
+
+    function setPoint1At(lngLat) {
+      point1 = [lngLat.lng, lngLat.lat];
+      currentMode = null;
+      
+      // Remove existing marker
+      if (point1Marker) {
+        point1Marker.remove();
+      }
+      
+      // Add new marker
+      point1Marker = gebetaMap.addImageMarker(
+        [lngLat.lng, lngLat.lat],
+        'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
+        [30, 30],
+        null,
+        1000
+      );
+      
+      updateStatus(`Point 1 set: ${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}`);
+    }
+
+    function setPoint2At(lngLat) {
+      point2 = [lngLat.lng, lngLat.lat];
+      currentMode = null;
+      
+      // Remove existing marker
+      if (point2Marker) {
+        point2Marker.remove();
+      }
+      
+      // Add new marker
+      point2Marker = gebetaMap.addImageMarker(
+        [lngLat.lng, lngLat.lat],
+        'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
+        [30, 30],
+        null,
+        1000
+      );
+      
+      updateStatus(`Point 2 set: ${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}`);
+    }
+
+    function drawPolyline() {
+      if (!point1 || !point2) {
+        alert('Please set both Point 1 and Point 2 first.');
+        return;
+      }
+
+      if (!map.getSource('polyline')) {
+        initPolylineLayer();
+      }
+
+      // Update the polyline source with coordinates
+      map.getSource('polyline').setData({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: [point1, point2] // [lng, lat] format
+        }
+      });
+
+      updateStatus('Polyline drawn!');
+      
+      // Fit map to show both points
+      const bounds = new maplibregl.LngLatBounds();
+      bounds.extend(point1);
+      bounds.extend(point2);
+      map.fitBounds(bounds, { padding: 50 });
+    }
+
+    function clearPolyline() {
+      if (map.getSource('polyline')) {
+        map.getSource('polyline').setData({
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: []
+          }
+        });
+      }
+      
+      // Clear markers
+      if (point1Marker) {
+        point1Marker.remove();
+        point1Marker = null;
+      }
+      if (point2Marker) {
+        point2Marker.remove();
+        point2Marker = null;
+      }
+      
+      point1 = null;
+      point2 = null;
+      currentMode = null;
+      updateStatus('Polyline cleared');
+    }
+
+    function updateStatus(message) {
+      const statusEl = document.getElementById('status');
+      if (message) {
+        statusEl.textContent = message;
+      } else {
+        let status = '';
+        if (point1) {
+          status += `Point 1: Set\n`;
+        }
+        if (point2) {
+          status += `Point 2: Set\n`;
+        }
+        if (point1 && point2) {
+          status += 'Ready to draw polyline!';
+        }
+        statusEl.textContent = status || 'Set points to begin';
+      }
+    }
+
+    // Make functions available globally
+    window.setPoint1 = setPoint1;
+    window.setPoint2 = setPoint2;
+    window.drawPolyline = drawPolyline;
+    window.clearPolyline = clearPolyline;
+  </script>
+</body>
+</html>
+

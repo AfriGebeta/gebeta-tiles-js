@@ -10,60 +10,88 @@ class DirectionsManager {
     this.routeLayer = null;
     this.markers = [];
     
-    // Initialize route source and layer
-    this._initRouteLayer();
+    // Initialize route source and layer when map is ready
+    if (this.map.isStyleLoaded()) {
+      this._initRouteLayer();
+    } else {
+      this.map.once('style.load', () => {
+        this._initRouteLayer();
+      });
+    }
   }
 
   _initRouteLayer() {
     if (!this.map) return;
+    
+    // Wait for map to be fully loaded
+    if (!this.map.isStyleLoaded()) {
+      this.map.once('style.load', () => this._initRouteLayer());
+      return;
+    }
 
-    // Add source for route geometry
-    this.map.addSource('route', {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: []
+    // Check if source already exists
+    if (this.map.getSource('route')) {
+      return;
+    }
+
+    try {
+      // Add source for route geometry
+      this.map.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: []
+          }
+        }
+      });
+
+      // Find the last layer to add route layer at the top (so it's always visible)
+      const layers = this.map.getStyle().layers;
+      let beforeId = null;
+      
+      // Try to add after the last layer, or before the first symbol layer
+      if (layers.length > 0) {
+        // Add at the very top (after last layer)
+        beforeId = null; // null means add at the end
+      } else {
+        // Fallback: find first symbol layer
+        for (const layer of layers) {
+          if (layer.type === 'symbol') {
+            beforeId = layer.id;
+            break;
+          }
         }
       }
-    });
 
-    // Add route line layer
-    this.map.addLayer({
-      id: 'route',
-      type: 'line',
-      source: 'route',
-      layout: {
-        'line-join': 'round',
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': '#007cbf',
-        'line-width': 4,
-        'line-opacity': 0.8
-      }
-    });
+      // Add route line layer with default style
+      this.map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+          'visibility': 'visible'
+        },
+        paint: {
+          'line-color': '#007cbf',
+          'line-width': 4,
+          'line-opacity': 0.8
+        }
+      }, beforeId);
+      
+      // Ensure layer is visible
+      this.map.setLayoutProperty('route', 'visibility', 'visible');
+    } catch (error) {
+      console.error('Error initializing route layer:', error);
+    }
 
-    // Add route arrow layer for direction indicators
-    this.map.addLayer({
-      id: 'route-arrows',
-      type: 'symbol',
-      source: 'route',
-      layout: {
-        'symbol-placement': 'line',
-        'text-field': '▶',
-        'text-size': 12,
-        'symbol-spacing': 50,
-        'text-keep-upright': false
-      },
-      paint: {
-        'text-color': '#007cbf',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 1
-      }
-    });
+    // Add route arrow layer for direction indicators (only if route has data)
+    // We'll add this layer only when we actually have route data to display
+    // For now, skip it to avoid potential issues
   }
 
   /**
@@ -192,6 +220,12 @@ class DirectionsManager {
    * @param {string} options.destinationIcon - Custom icon for destination marker
    * @param {string} options.waypointIcon - Custom icon for waypoint markers
    * @param {boolean} options.showInstructions - Whether to show instruction step markers (default: false)
+   * @param {Object} options.routeStyle - Route line styling options
+   * @param {string} options.routeStyle.color - Route line color (default: '#007cbf')
+   * @param {number} options.routeStyle.width - Route line width in pixels (default: 4)
+   * @param {number} options.routeStyle.opacity - Route line opacity 0-1 (default: 0.8)
+   * @param {string} options.routeStyle.lineJoin - Line join style: 'round', 'bevel', 'miter' (default: 'round')
+   * @param {string} options.routeStyle.lineCap - Line cap style: 'round', 'butt', 'square' (default: 'round')
    */
   displayRoute(routeData, options = {}) {
     if (!this.map || !routeData) return;
@@ -201,22 +235,100 @@ class DirectionsManager {
       originIcon = null,
       destinationIcon = null,
       waypointIcon = null,
-      showInstructions = false
+      showInstructions = false,
+      routeStyle = {}
     } = options;
+    
+    // Default route style
+    const style = {
+      color: routeStyle.color || '#007cbf',
+      width: routeStyle.width || 4,
+      opacity: routeStyle.opacity !== undefined ? routeStyle.opacity : 0.8,
+      lineJoin: routeStyle.lineJoin || 'round',
+      lineCap: routeStyle.lineCap || 'round'
+    };
+
+    // Ensure route layer is initialized
+    if (!this.map.getSource('route')) {
+      this._initRouteLayer();
+    }
 
     // Clear existing route
     this.clearRoute();
 
-    // Update route geometry
+    // Get coordinates - handle both transformed data and raw API response
+    let coordinates = [];
     if (routeData.geometry && routeData.geometry.coordinates) {
-      this.map.getSource('route').setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: routeData.geometry.coordinates
+      // Already transformed data from getDirections()
+      coordinates = routeData.geometry.coordinates;
+    } else if (routeData.direction && Array.isArray(routeData.direction)) {
+      // Raw API response - transform [lat, lng] to [lng, lat]
+      coordinates = routeData.direction.map(coord => [coord[1], coord[0]]);
+    } else if (routeData.path && Array.isArray(routeData.path)) {
+      // Handle path format with {lat, lng} objects
+      coordinates = routeData.path.map(point => [point.lng, point.lat]);
+    }
+
+    // Update route geometry if we have coordinates
+    if (coordinates.length > 0 && this.map.getSource('route')) {
+      try {
+        this.map.getSource('route').setData({
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: coordinates
+          }
+        });
+        
+        // Ensure route layer exists
+        if (!this.map.getLayer('route')) {
+          this._initRouteLayer();
         }
-      });
+        
+        // Move route layer to the very top of the layer stack
+        try {
+          const layers = this.map.getStyle().layers;
+          const routeLayerIndex = layers.findIndex(l => l.id === 'route');
+          if (routeLayerIndex >= 0 && routeLayerIndex < layers.length - 1) {
+            // Remove and re-add at the end (top of stack)
+            this.map.removeLayer('route');
+            this.map.addLayer({
+              id: 'route',
+              type: 'line',
+              source: 'route',
+              layout: {
+                'line-join': style.lineJoin,
+                'line-cap': style.lineCap,
+                'visibility': 'visible'
+              },
+              paint: {
+                'line-color': style.color,
+                'line-width': style.width,
+                'line-opacity': style.opacity
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Could not move route layer:', e);
+        }
+        
+        // Force layer to be visible and set properties
+        this.map.setLayoutProperty('route', 'visibility', 'visible');
+        this.map.setLayoutProperty('route', 'line-join', style.lineJoin);
+        this.map.setLayoutProperty('route', 'line-cap', style.lineCap);
+        this.map.setPaintProperty('route', 'line-color', style.color);
+        this.map.setPaintProperty('route', 'line-width', style.width);
+        this.map.setPaintProperty('route', 'line-opacity', style.opacity);
+        
+        console.log('Route displayed with', coordinates.length, 'coordinates');
+      } catch (error) {
+        console.error('Error setting route data:', error);
+      }
+    } else {
+      console.warn('No valid coordinates found in routeData:', routeData);
+      console.warn('Coordinates array length:', coordinates.length);
+      console.warn('Route source exists:', !!this.map.getSource('route'));
     }
 
     // Add markers if requested
@@ -410,19 +522,35 @@ class DirectionsManager {
    * @param {string} style.color - Route line color
    * @param {number} style.width - Route line width
    * @param {number} style.opacity - Route line opacity
+   * @param {string} style.lineJoin - Line join style: 'round', 'bevel', 'miter'
+   * @param {string} style.lineCap - Line cap style: 'round', 'butt', 'square'
    */
   updateRouteStyle(style = {}) {
-    if (!this.map) return;
+    if (!this.map || !this.map.getLayer('route')) return;
 
     const {
       color = '#007cbf',
       width = 4,
-      opacity = 0.8
+      opacity = 0.8,
+      lineJoin = 'round',
+      lineCap = 'round'
     } = style;
 
-    this.map.setPaintProperty('route', 'line-color', color);
-    this.map.setPaintProperty('route', 'line-width', width);
-    this.map.setPaintProperty('route', 'line-opacity', opacity);
+    if (color !== undefined) {
+      this.map.setPaintProperty('route', 'line-color', color);
+    }
+    if (width !== undefined) {
+      this.map.setPaintProperty('route', 'line-width', width);
+    }
+    if (opacity !== undefined) {
+      this.map.setPaintProperty('route', 'line-opacity', opacity);
+    }
+    if (lineJoin !== undefined) {
+      this.map.setLayoutProperty('route', 'line-join', lineJoin);
+    }
+    if (lineCap !== undefined) {
+      this.map.setLayoutProperty('route', 'line-cap', lineCap);
+    }
   }
 
   /**
