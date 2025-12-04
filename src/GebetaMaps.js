@@ -42,12 +42,35 @@ class GebetaMaps {
     };
   }
 
-  init(options) {
-    const styleUrl = `https://tiles.gebeta.app/styles/standard/style.json`;
+  init(options = {}) {
+    const defaultStyleUrl = `https://tiles.gebeta.app/styles/standard/style.json`;
+
+    // Allow callers to pass either:
+    // - styleUrl: a custom style URL
+    // - style: a full style JSON object
+    // We then pass the resolved style into MapLibre.
+    const {
+      styleUrl,
+      style,
+      ...mapOptions
+    } = options;
+
+    // Determine the style to use: prefer style object, then styleUrl, then default
+    let resolvedStyle;
+    if (style && typeof style === 'object') {
+      // Pass style object directly to MapLibre
+      resolvedStyle = style;
+    } else if (styleUrl && typeof styleUrl === 'string') {
+      // Pass style URL string to MapLibre
+      resolvedStyle = styleUrl;
+    } else {
+      // Use default style URL
+      resolvedStyle = defaultStyleUrl;
+    }
 
     this.map = new maplibregl.Map({
-      ...options,
-      style: styleUrl,
+      ...mapOptions,
+      style: resolvedStyle,
       attributionControl: false,
       transformRequest: (url, resourceType) => {
         // Only add the Authorization header for requests to tiles.gebeta.app

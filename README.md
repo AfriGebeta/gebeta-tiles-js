@@ -103,6 +103,65 @@ gebetaMap.initFenceManager('#ff6600'); // Orange default color
 - `on(event, handler)` - Add event listeners to the map
 - `addNavigationControls(position)` - Add zoom/pan controls
 
+##### Custom Map Styles
+
+By default, Gebeta Maps uses the standard vector style:
+
+```text
+https://tiles.gebeta.app/styles/standard/style.json
+```
+
+You can override this and provide your own **style URL** or full **style JSON** when calling `init`.
+
+**Using a custom style URL**
+
+```javascript
+const gebetaMap = new GebetaMaps({
+  apiKey: 'YOUR_API_KEY',
+});
+
+const map = gebetaMap.init({
+  container: 'map',
+  center: [38.7685, 9.0161],
+  zoom: 13,
+
+  // Custom style URL (vector or raster)
+  styleUrl: 'https://tiles.gebeta.app/styles/raster/raster.json'
+});
+```
+
+The raster style above (`https://tiles.gebeta.app/styles/raster/raster.json`) is a **satellite with labels** style that combines raster imagery with vector labels. See the JSON at [`https://tiles.gebeta.app/styles/raster/raster.json`](https://tiles.gebeta.app/styles/raster/raster.json).
+
+**Using a full style JSON object**
+
+You can also pass a full MapLibre style JSON object directly:
+
+```javascript
+import customStyle from './my-custom-style.json';
+
+const map = gebetaMap.init({
+  container: 'map',
+  center: [38.7685, 9.0161],
+  zoom: 13,
+
+  // Inline style JSON
+  style: customStyle
+});
+```
+
+Only one of `style` or `styleUrl` should be provided; if both are present, `style` takes precedence. If neither is provided, the SDK falls back to the default Gebeta standard style.
+
+**Designing styles with the Playground**
+
+You can visually design and export custom styles using the Gebeta Maps Playground:
+
+- Playground: [`https://playground.tiles.gebeta.app/`](https://playground.tiles.gebeta.app/)
+
+From there you can:
+- Tweak colors for background, roads, buildings, parks, and water
+- Export the generated style JSON
+- Use the exported JSON with the `style` option shown above
+
 #### Markers
 - `addImageMarker(lngLat, imageUrl, size, onClick, zIndex, popupHtml, options)` - Add a custom marker. Optionally attach a popup with HTML content. You may pass `options.id` to set a custom marker ID. Returns `{ marker, popup, id }`.
 - `removeMarker(markerId)` - Remove a specific marker by its ID. Returns `true` if successful, `false` if marker not found.
