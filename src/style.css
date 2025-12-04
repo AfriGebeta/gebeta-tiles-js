@@ -71,3 +71,74 @@ body {
   width: 30px;
   height: 30px;
 }
+
+/* Satellite toggle control - use high specificity to override MapLibre defaults */
+.maplibregl-ctrl.gebeta-satellite-toggle {
+  margin: 10px 10px 10px 10px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.maplibregl-ctrl.gebeta-satellite-toggle button.gebeta-satellite-toggle__btn,
+.gebeta-satellite-toggle__btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  outline: none !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.2s ease;
+  overflow: hidden !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  max-width: 44px !important;
+  max-height: 44px !important;
+}
+
+.maplibregl-ctrl.gebeta-satellite-toggle button.gebeta-satellite-toggle__btn:hover,
+.gebeta-satellite-toggle__btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  transform: scale(1.05);
+  border: none !important;
+  outline: none !important;
+}
+
+.maplibregl-ctrl.gebeta-satellite-toggle button.gebeta-satellite-toggle__btn:active,
+.gebeta-satellite-toggle__btn:active {
+  transform: scale(0.95);
+  border: none !important;
+  outline: none !important;
+}
+
+.maplibregl-ctrl.gebeta-satellite-toggle button.gebeta-satellite-toggle__btn:focus,
+.gebeta-satellite-toggle__btn:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.maplibregl-ctrl.gebeta-satellite-toggle button.gebeta-satellite-toggle__btn img,
+.gebeta-satellite-toggle__btn img {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  max-width: 44px !important;
+  max-height: 44px !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 10px !important;
+  border: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}

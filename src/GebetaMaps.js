@@ -40,6 +40,15 @@ class GebetaMaps {
       isOpen: false,
       keydownHandler: null,
     };
+
+    // Satellite toggle state
+    this._satelliteToggle = {
+      isSatellite: false,
+      standardStyleUrl: 'https://tiles.gebeta.app/styles/standard/style.json',
+      satelliteStyleUrl: 'https://tiles.gebeta.app/styles/raster/raster.json',
+      standardImageUrl: 'https://tiles.gebeta.app/static/standard.jpg',
+      satelliteImageUrl: 'https://tiles.gebeta.app/static/satellite.jpg',
+    };
   }
 
   init(options = {}) {
@@ -60,12 +69,17 @@ class GebetaMaps {
     if (style && typeof style === 'object') {
       // Pass style object directly to MapLibre
       resolvedStyle = style;
+      // Can't determine if it's satellite from an object, default to false
+      this._satelliteToggle.isSatellite = false;
     } else if (styleUrl && typeof styleUrl === 'string') {
       // Pass style URL string to MapLibre
       resolvedStyle = styleUrl;
+      // Check if it's the satellite style URL
+      this._satelliteToggle.isSatellite = styleUrl.includes('raster') || styleUrl.includes('satellite');
     } else {
       // Use default style URL
       resolvedStyle = defaultStyleUrl;
+      this._satelliteToggle.isSatellite = false;
     }
 
     this.map = new maplibregl.Map({
@@ -95,6 +109,26 @@ class GebetaMaps {
     // Add fullscreen control by default (can be disabled with options.fullscreenControl = false)
     if (!options || options.fullscreenControl !== false) {
       try { this.addFullscreenPopupControl(); } catch (e) {}
+    }
+
+    // Add satellite toggle if enabled
+    if (options && options.satelliteToggle === true) {
+      // Allow custom style URLs and image URLs
+      if (options.satelliteToggleOptions) {
+        if (options.satelliteToggleOptions.standardStyleUrl) {
+          this._satelliteToggle.standardStyleUrl = options.satelliteToggleOptions.standardStyleUrl;
+        }
+        if (options.satelliteToggleOptions.satelliteStyleUrl) {
+          this._satelliteToggle.satelliteStyleUrl = options.satelliteToggleOptions.satelliteStyleUrl;
+        }
+        if (options.satelliteToggleOptions.standardImageUrl) {
+          this._satelliteToggle.standardImageUrl = options.satelliteToggleOptions.standardImageUrl;
+        }
+        if (options.satelliteToggleOptions.satelliteImageUrl) {
+          this._satelliteToggle.satelliteImageUrl = options.satelliteToggleOptions.satelliteImageUrl;
+        }
+      }
+      try { this.addSatelliteToggle(); } catch (e) {}
     }
 
     // Initialize remaining managers after map loads
@@ -370,6 +404,85 @@ class GebetaMaps {
     setTimeout(() => {
       try { this.map.resize(); } catch (e) {}
     }, 0);
+  }
+
+  /**
+   * Add a satellite/standard style toggle control at the bottom of the map
+   */
+  addSatelliteToggle(position = 'bottom-right') {
+    if (!this.map) throw new Error('Map not initialized. Call init() first.');
+
+    const control = {
+      onAdd: () => {
+        const container = document.createElement('div');
+        container.className = 'maplibregl-ctrl gebeta-satellite-toggle';
+        container.style.margin = '10px';
+        container.style.background = 'transparent';
+        container.style.border = 'none';
+        container.style.boxShadow = 'none';
+        container.style.padding = '0';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'gebeta-satellite-toggle__btn';
+        button.setAttribute('aria-label', 'Toggle satellite view');
+        button.style.width = '44px';
+        button.style.height = '44px';
+        button.style.padding = '0';
+        button.style.margin = '0';
+        button.style.border = 'none';
+        button.style.outline = 'none';
+        button.style.borderRadius = '10px';
+        button.style.background = 'transparent';
+        button.style.overflow = 'hidden';
+        button.style.cursor = 'pointer';
+        
+        // Update button based on current state (set during init)
+        this._updateSatelliteToggleButton(button);
+
+        button.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this._toggleSatelliteView(button);
+        });
+
+        container.appendChild(button);
+        return container;
+      },
+      onRemove: () => {},
+    };
+
+    this.map.addControl(control, position);
+  }
+
+  _updateSatelliteToggleButton(button) {
+    if (this._satelliteToggle.isSatellite) {
+      // Currently showing satellite, so show standard image to switch to standard
+      button.innerHTML = `<img src="${this._satelliteToggle.standardImageUrl}" alt="Switch to standard view" style="width: 44px; height: 44px; object-fit: cover; display: block; border-radius: 10px; border: none; padding: 0; margin: 0;" />`;
+      button.setAttribute('aria-label', 'Switch to standard view');
+    } else {
+      // Currently showing standard, so show satellite image to switch to satellite
+      button.innerHTML = `<img src="${this._satelliteToggle.satelliteImageUrl}" alt="Switch to satellite view" style="width: 44px; height: 44px; object-fit: cover; display: block; border-radius: 10px; border: none; padding: 0; margin: 0;" />`;
+      button.setAttribute('aria-label', 'Switch to satellite view');
+    }
+  }
+
+  _toggleSatelliteView(button) {
+    if (!this.map) return;
+
+    // Toggle state
+    this._satelliteToggle.isSatellite = !this._satelliteToggle.isSatellite;
+
+    // Determine which style to switch to
+    const targetStyleUrl = this._satelliteToggle.isSatellite
+      ? this._satelliteToggle.satelliteStyleUrl
+      : this._satelliteToggle.standardStyleUrl;
+
+    // Update button immediately for better UX
+    this._updateSatelliteToggleButton(button);
+
+    // Switch map style
+    this.map.setStyle(targetStyleUrl);
   }
 
   addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10, popupHtml = null, options = {}) {

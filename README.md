@@ -7,6 +7,8 @@ A JavaScript mapping library that provides an easy-to-use interface for creating
 - **Marker Clustering**: Automatic clustering of nearby markers with configurable radius and zoom levels
 - **Fence Drawing**: Interactive polygon drawing with dynamic preview and multi-fence support
 - **Custom Markers**: Support for custom marker images and click handlers
+- **Satellite Toggle**: Built-in toggle button to switch between standard vector and satellite views
+- **Custom Map Styles**: Support for custom style URLs and inline style JSON objects
 - **API Key Authentication**: Secure tile access with Bearer token authentication
 - **Modular Architecture**: Clean separation of concerns with dedicated managers for clustering and fence functionality
 
@@ -74,6 +76,15 @@ Demonstrates advanced clustering features:
 - Custom cluster images and click handlers
 - Real-time clustering settings adjustment
 - Cluster count badge toggles
+
+### Custom Map Styles
+[examples/custom-style.html](examples/custom-style.html)
+
+Shows how to use custom map styles and the satellite toggle:
+- Switching between standard vector and satellite views using the built-in toggle
+- Using custom style URLs
+- Loading and applying styles exported from the Playground
+- Satellite toggle button with preview images
 
 ## API Reference
 
@@ -161,6 +172,50 @@ From there you can:
 - Tweak colors for background, roads, buildings, parks, and water
 - Export the generated style JSON
 - Use the exported JSON with the `style` option shown above
+
+##### Satellite Toggle Control
+
+The SDK includes a built-in toggle button that allows users to switch between standard vector and satellite views. When enabled, a small rounded button appears at the bottom-right of the map.
+
+**Basic usage:**
+
+```javascript
+const gebetaMap = new GebetaMaps({
+  apiKey: 'YOUR_API_KEY',
+});
+
+const map = gebetaMap.init({
+  container: 'map',
+  center: [38.7685, 9.0161],
+  zoom: 12,
+  satelliteToggle: true  // Enable the toggle
+});
+```
+
+The toggle automatically switches between:
+- **Standard view**: `https://tiles.gebeta.app/styles/standard/style.json`
+- **Satellite view**: `https://tiles.gebeta.app/styles/raster/raster.json`
+
+**Customizing toggle options:**
+
+You can customize the style URLs and button images:
+
+```javascript
+const map = gebetaMap.init({
+  container: 'map',
+  center: [38.7685, 9.0161],
+  zoom: 12,
+  satelliteToggle: true,
+  satelliteToggleOptions: {
+    standardStyleUrl: 'https://tiles.gebeta.app/styles/standard/style.json',
+    satelliteStyleUrl: 'https://tiles.gebeta.app/styles/raster/raster.json',
+    standardImageUrl: 'https://tiles.gebeta.app/static/standard.jpg',
+    satelliteImageUrl: 'https://tiles.gebeta.app/static/satellite.jpg'
+  }
+});
+```
+
+The toggle button displays a preview image of the view you'll switch to (not the current view). Clicking it instantly switches between standard and satellite styles.
 
 #### Markers
 - `addImageMarker(lngLat, imageUrl, size, onClick, zIndex, popupHtml, options)` - Add a custom marker. Optionally attach a popup with HTML content. You may pass `options.id` to set a custom marker ID. Returns `{ marker, popup, id }`.
