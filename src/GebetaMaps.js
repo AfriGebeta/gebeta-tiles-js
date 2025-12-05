@@ -41,13 +41,26 @@ class GebetaMaps {
       keydownHandler: null,
     };
 
-    // Satellite toggle state
-    this._satelliteToggle = {
-      isSatellite: false,
-      standardStyleUrl: 'https://tiles.gebeta.app/styles/standard/style.json',
-      satelliteStyleUrl: 'https://tiles.gebeta.app/styles/raster/raster.json',
-      standardImageUrl: 'https://tiles.gebeta.app/static/standard.jpg',
-      satelliteImageUrl: 'https://tiles.gebeta.app/static/satellite.jpg',
+    // Style selector state
+    this._styleSelector = {
+      currentStyle: 'standard', // 'standard', 'satellite', or 'terrain'
+      styles: {
+        standard: {
+          url: 'https://tiles.gebeta.app/styles/standard/style.json',
+          imageUrl: 'https://tiles.gebeta.app/static/standard.jpg',
+          label: 'Standard'
+        },
+        satellite: {
+          url: 'https://tiles.gebeta.app/styles/raster/raster.json',
+          imageUrl: 'https://tiles.gebeta.app/static/satellite.jpg',
+          label: 'Satellite'
+        },
+        terrain: {
+          url: 'https://tiles.gebeta.app/styles/standard/terrain/terrain.json',
+          imageUrl: 'https://tiles.gebeta.app/static/terrain.jpg',
+          label: 'Terrain'
+        }
+      }
     };
   }
 
@@ -69,17 +82,23 @@ class GebetaMaps {
     if (style && typeof style === 'object') {
       // Pass style object directly to MapLibre
       resolvedStyle = style;
-      // Can't determine if it's satellite from an object, default to false
-      this._satelliteToggle.isSatellite = false;
+      // Can't determine which style from an object, default to standard
+      this._styleSelector.currentStyle = 'standard';
     } else if (styleUrl && typeof styleUrl === 'string') {
       // Pass style URL string to MapLibre
       resolvedStyle = styleUrl;
-      // Check if it's the satellite style URL
-      this._satelliteToggle.isSatellite = styleUrl.includes('raster') || styleUrl.includes('satellite');
+      // Detect which style is being used
+      if (styleUrl.includes('terrain')) {
+        this._styleSelector.currentStyle = 'terrain';
+      } else if (styleUrl.includes('raster') || styleUrl.includes('satellite')) {
+        this._styleSelector.currentStyle = 'satellite';
+      } else {
+        this._styleSelector.currentStyle = 'standard';
+      }
     } else {
       // Use default style URL
       resolvedStyle = defaultStyleUrl;
-      this._satelliteToggle.isSatellite = false;
+      this._styleSelector.currentStyle = 'standard';
     }
 
     this.map = new maplibregl.Map({
@@ -111,24 +130,30 @@ class GebetaMaps {
       try { this.addFullscreenPopupControl(); } catch (e) {}
     }
 
-    // Add satellite toggle if enabled
+    // Add style selector if enabled
     if (options && options.satelliteToggle === true) {
       // Allow custom style URLs and image URLs
       if (options.satelliteToggleOptions) {
         if (options.satelliteToggleOptions.standardStyleUrl) {
-          this._satelliteToggle.standardStyleUrl = options.satelliteToggleOptions.standardStyleUrl;
+          this._styleSelector.styles.standard.url = options.satelliteToggleOptions.standardStyleUrl;
         }
         if (options.satelliteToggleOptions.satelliteStyleUrl) {
-          this._satelliteToggle.satelliteStyleUrl = options.satelliteToggleOptions.satelliteStyleUrl;
+          this._styleSelector.styles.satellite.url = options.satelliteToggleOptions.satelliteStyleUrl;
+        }
+        if (options.satelliteToggleOptions.terrainStyleUrl) {
+          this._styleSelector.styles.terrain.url = options.satelliteToggleOptions.terrainStyleUrl;
         }
         if (options.satelliteToggleOptions.standardImageUrl) {
-          this._satelliteToggle.standardImageUrl = options.satelliteToggleOptions.standardImageUrl;
+          this._styleSelector.styles.standard.imageUrl = options.satelliteToggleOptions.standardImageUrl;
         }
         if (options.satelliteToggleOptions.satelliteImageUrl) {
-          this._satelliteToggle.satelliteImageUrl = options.satelliteToggleOptions.satelliteImageUrl;
+          this._styleSelector.styles.satellite.imageUrl = options.satelliteToggleOptions.satelliteImageUrl;
+        }
+        if (options.satelliteToggleOptions.terrainImageUrl) {
+          this._styleSelector.styles.terrain.imageUrl = options.satelliteToggleOptions.terrainImageUrl;
         }
       }
-      try { this.addSatelliteToggle(); } catch (e) {}
+      try { this.addStyleSelector(); } catch (e) {}
     }
 
     // Initialize remaining managers after map loads
@@ -409,80 +434,245 @@ class GebetaMaps {
   /**
    * Add a satellite/standard style toggle control at the bottom of the map
    */
-  addSatelliteToggle(position = 'bottom-right') {
+  addStyleSelector(position = 'bottom-right') {
     if (!this.map) throw new Error('Map not initialized. Call init() first.');
 
     const control = {
       onAdd: () => {
         const container = document.createElement('div');
-        container.className = 'maplibregl-ctrl gebeta-satellite-toggle';
+        container.className = 'maplibregl-ctrl gebeta-style-selector';
         container.style.margin = '10px';
         container.style.background = 'transparent';
         container.style.border = 'none';
         container.style.boxShadow = 'none';
         container.style.padding = '0';
+        container.style.position = 'relative';
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'gebeta-satellite-toggle__btn';
-        button.setAttribute('aria-label', 'Toggle satellite view');
+        button.className = 'gebeta-style-selector__btn';
+        button.setAttribute('aria-label', 'Select map style');
         button.style.width = '44px';
         button.style.height = '44px';
         button.style.padding = '0';
         button.style.margin = '0';
-        button.style.border = 'none';
+        button.style.border = '1px solid hsl(214.3 31.8% 91.4%)';
         button.style.outline = 'none';
-        button.style.borderRadius = '10px';
-        button.style.background = 'transparent';
+        button.style.borderRadius = '6px';
+        button.style.background = 'hsl(0 0% 100%)';
         button.style.overflow = 'hidden';
         button.style.cursor = 'pointer';
+        button.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
         
-        // Update button based on current state (set during init)
-        this._updateSatelliteToggleButton(button);
+        // Update button based on current state
+        this._updateStyleSelectorButton(button);
 
+        // Create popup menu
+        const popup = document.createElement('div');
+        popup.className = 'gebeta-style-selector__popup';
+        popup.style.display = 'none';
+        popup.style.position = 'absolute';
+        popup.style.bottom = '54px';
+        popup.style.right = '0';
+        popup.style.background = 'transparent';
+        popup.style.borderRadius = '0';
+        popup.style.boxShadow = 'none';
+        popup.style.padding = '0';
+        popup.style.minWidth = '160px';
+        popup.style.zIndex = '1000';
+        popup.style.overflow = 'visible';
+        popup.style.opacity = '0';
+        popup.style.transform = 'translateY(8px) scale(0.95)';
+        popup.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        popup.style.pointerEvents = 'none';
+        popup.style.display = 'none';
+        popup.style.flexDirection = 'column';
+        popup.style.gap = '4px';
+
+        // Create menu items for each style
+        const styleKeys = ['standard', 'satellite', 'terrain'];
+        styleKeys.forEach((styleKey) => {
+          const style = this._styleSelector.styles[styleKey];
+          const menuItem = document.createElement('button');
+          menuItem.type = 'button';
+          menuItem.className = 'gebeta-style-selector__menu-item';
+          menuItem.setAttribute('data-style-key', styleKey);
+          menuItem.style.display = 'flex';
+          menuItem.style.alignItems = 'center';
+          menuItem.style.width = '100%';
+          menuItem.style.padding = '8px 12px';
+          menuItem.style.margin = '0';
+          menuItem.style.border = '1px solid hsl(214.3 31.8% 91.4%)';
+          menuItem.style.borderRadius = '6px';
+          menuItem.style.background = 'hsl(0 0% 100%)';
+          menuItem.style.cursor = 'pointer';
+          menuItem.style.fontSize = '14px';
+          menuItem.style.fontWeight = '400';
+          menuItem.style.color = 'hsl(222.2 84% 4.9%)';
+          menuItem.style.textAlign = 'left';
+          menuItem.style.transition = 'all 0.15s ease';
+          menuItem.style.position = 'relative';
+          menuItem.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+
+          const img = document.createElement('img');
+          img.src = style.imageUrl;
+          img.alt = style.label;
+          img.style.width = '36px';
+          img.style.height = '36px';
+          img.style.borderRadius = '4px';
+          img.style.objectFit = 'cover';
+          img.style.marginRight = '10px';
+          img.style.flexShrink = '0';
+          img.style.border = '1px solid hsl(214.3 31.8% 91.4%)';
+          img.style.transition = 'transform 0.15s ease';
+
+          const label = document.createElement('span');
+          label.textContent = style.label;
+          label.style.fontSize = '14px';
+          label.style.lineHeight = '1.5';
+          label.style.fontWeight = 'inherit';
+
+          menuItem.appendChild(img);
+          menuItem.appendChild(label);
+
+          // Highlight current style
+          if (this._styleSelector.currentStyle === styleKey) {
+            menuItem.style.background = 'hsl(210 40% 96.1%)';
+            menuItem.style.color = 'hsl(222.2 47.4% 11.2%)';
+            menuItem.style.fontWeight = '500';
+            menuItem.style.borderColor = 'hsl(214.3 31.8% 91.4%)';
+          }
+
+          menuItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this._switchStyle(styleKey, button, popup);
+          });
+
+          menuItem.addEventListener('mouseenter', () => {
+            if (this._styleSelector.currentStyle !== styleKey) {
+              menuItem.style.background = 'hsl(210 40% 98%)';
+              menuItem.style.borderColor = 'hsl(214.3 31.8% 91.4%)';
+            }
+          });
+
+          menuItem.addEventListener('mouseleave', () => {
+            if (this._styleSelector.currentStyle !== styleKey) {
+              menuItem.style.background = 'hsl(0 0% 100%)';
+              menuItem.style.borderColor = 'hsl(214.3 31.8% 91.4%)';
+            }
+          });
+
+          popup.appendChild(menuItem);
+        });
+
+        // Toggle popup on button click
         button.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          this._toggleSatelliteView(button);
+          const isVisible = popup.style.display === 'flex' && popup.style.opacity === '1';
+          
+          if (isVisible) {
+            // Close popup
+            popup.style.opacity = '0';
+            popup.style.transform = 'translateY(8px) scale(0.95)';
+            popup.style.pointerEvents = 'none';
+            setTimeout(() => {
+              popup.style.display = 'none';
+            }, 200);
+          } else {
+            // Open popup
+            popup.style.display = 'flex';
+            popup.style.pointerEvents = 'auto';
+            // Trigger reflow to ensure display change is applied
+            popup.offsetHeight;
+            requestAnimationFrame(() => {
+              popup.style.opacity = '1';
+              popup.style.transform = 'translateY(0) scale(1)';
+            });
+          }
         });
 
+        // Close popup when clicking outside
+        const closePopup = (e) => {
+          if (!container.contains(e.target) && popup.style.display === 'flex') {
+            popup.style.opacity = '0';
+            popup.style.transform = 'translateY(8px) scale(0.95)';
+            popup.style.pointerEvents = 'none';
+            setTimeout(() => {
+              popup.style.display = 'none';
+            }, 200);
+          }
+        };
+        document.addEventListener('click', closePopup);
+        container._closePopupHandler = closePopup;
+
         container.appendChild(button);
+        container.appendChild(popup);
         return container;
       },
-      onRemove: () => {},
+      onRemove: (container) => {
+        // Remove event listener
+        if (container && container._closePopupHandler) {
+          document.removeEventListener('click', container._closePopupHandler);
+        }
+      },
     };
 
     this.map.addControl(control, position);
   }
 
-  _updateSatelliteToggleButton(button) {
-    if (this._satelliteToggle.isSatellite) {
-      // Currently showing satellite, so show standard image to switch to standard
-      button.innerHTML = `<img src="${this._satelliteToggle.standardImageUrl}" alt="Switch to standard view" style="width: 44px; height: 44px; object-fit: cover; display: block; border-radius: 10px; border: none; padding: 0; margin: 0;" />`;
-      button.setAttribute('aria-label', 'Switch to standard view');
-    } else {
-      // Currently showing standard, so show satellite image to switch to satellite
-      button.innerHTML = `<img src="${this._satelliteToggle.satelliteImageUrl}" alt="Switch to satellite view" style="width: 44px; height: 44px; object-fit: cover; display: block; border-radius: 10px; border: none; padding: 0; margin: 0;" />`;
-      button.setAttribute('aria-label', 'Switch to satellite view');
-    }
+  _updateStyleSelectorButton(button) {
+    const currentStyle = this._styleSelector.styles[this._styleSelector.currentStyle];
+    button.innerHTML = `<img src="${currentStyle.imageUrl}" alt="${currentStyle.label}" style="width: 44px; height: 44px; object-fit: cover; display: block; border-radius: 10px; border: none; padding: 0; margin: 0;" />`;
+    button.setAttribute('aria-label', `Current style: ${currentStyle.label}. Click to change.`);
   }
 
-  _toggleSatelliteView(button) {
-    if (!this.map) return;
+  _switchStyle(styleKey, button, popup) {
+    if (!this.map || this._styleSelector.currentStyle === styleKey) {
+      popup.style.display = 'none';
+      return;
+    }
 
-    // Toggle state
-    this._satelliteToggle.isSatellite = !this._satelliteToggle.isSatellite;
+    const targetStyle = this._styleSelector.styles[styleKey];
+    this._styleSelector.currentStyle = styleKey;
 
-    // Determine which style to switch to
-    const targetStyleUrl = this._satelliteToggle.isSatellite
-      ? this._satelliteToggle.satelliteStyleUrl
-      : this._satelliteToggle.standardStyleUrl;
+    // Update button immediately
+    this._updateStyleSelectorButton(button);
 
-    // Update button immediately for better UX
-    this._updateSatelliteToggleButton(button);
+    // Update popup menu highlighting
+    const menuItems = popup.querySelectorAll('.gebeta-style-selector__menu-item');
+    menuItems.forEach((item) => {
+      const itemStyleKey = item.getAttribute('data-style-key');
+      
+      if (itemStyleKey === styleKey) {
+        item.style.background = 'hsl(210 40% 96.1%)';
+        item.style.color = 'hsl(222.2 47.4% 11.2%)';
+        item.style.fontWeight = '500';
+        item.style.borderColor = 'hsl(214.3 31.8% 91.4%)';
+      } else {
+        item.style.background = 'hsl(0 0% 100%)';
+        item.style.color = 'hsl(222.2 84% 4.9%)';
+        item.style.fontWeight = '400';
+        item.style.borderColor = 'hsl(214.3 31.8% 91.4%)';
+      }
+    });
+
+    // Close popup with animation
+    popup.style.opacity = '0';
+    popup.style.transform = 'translateY(8px) scale(0.95)';
+    popup.style.pointerEvents = 'none';
+    setTimeout(() => {
+      popup.style.display = 'none';
+    }, 200);
 
     // Switch map style
-    this.map.setStyle(targetStyleUrl);
+    this.map.setStyle(targetStyle.url);
+  }
+
+  // Keep old method name for backward compatibility
+  addSatelliteToggle(position = 'bottom-right') {
+    return this.addStyleSelector(position);
   }
 
   addImageMarker(lngLat, imageUrl, size = [30, 30], onClick = null, zIndex = 10, popupHtml = null, options = {}) {

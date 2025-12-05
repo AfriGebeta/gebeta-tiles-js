@@ -7,7 +7,7 @@ A JavaScript mapping library that provides an easy-to-use interface for creating
 - **Marker Clustering**: Automatic clustering of nearby markers with configurable radius and zoom levels
 - **Fence Drawing**: Interactive polygon drawing with dynamic preview and multi-fence support
 - **Custom Markers**: Support for custom marker images and click handlers
-- **Satellite Toggle**: Built-in toggle button to switch between standard vector and satellite views
+- **Style Selector**: Built-in style selector with popup menu to switch between standard vector, satellite, and terrain views
 - **Custom Map Styles**: Support for custom style URLs and inline style JSON objects
 - **API Key Authentication**: Secure tile access with Bearer token authentication
 - **Modular Architecture**: Clean separation of concerns with dedicated managers for clustering and fence functionality
@@ -80,11 +80,11 @@ Demonstrates advanced clustering features:
 ### Custom Map Styles
 [examples/custom-style.html](examples/custom-style.html)
 
-Shows how to use custom map styles and the satellite toggle:
-- Switching between standard vector and satellite views using the built-in toggle
-- Using custom style URLs
-- Loading and applying styles exported from the Playground
-- Satellite toggle button with preview images
+Shows how to use custom map styles and the style selector:
+- Switching between standard vector, satellite, and terrain views using the built-in style selector
+- Using custom style URLs (enter a URL string directly)
+- Loading and applying styles exported from the Playground (paste JSON)
+- Style selector popup menu with preview images for each style
 
 ## API Reference
 
@@ -173,9 +173,9 @@ From there you can:
 - Export the generated style JSON
 - Use the exported JSON with the `style` option shown above
 
-##### Satellite Toggle Control
+##### Style Selector Control
 
-The SDK includes a built-in toggle button that allows users to switch between standard vector and satellite views. When enabled, a small rounded button appears at the bottom-right of the map.
+The SDK includes a built-in style selector that allows users to switch between standard vector, satellite, and terrain views. When enabled, a small rounded button appears at the bottom-right of the map. Clicking it opens a popup menu with all three style options.
 
 **Basic usage:**
 
@@ -188,15 +188,16 @@ const map = gebetaMap.init({
   container: 'map',
   center: [38.7685, 9.0161],
   zoom: 12,
-  satelliteToggle: true  // Enable the toggle
+  satelliteToggle: true  // Enable the style selector (kept for backward compatibility)
 });
 ```
 
-The toggle automatically switches between:
-- **Standard view**: `https://tiles.gebeta.app/styles/standard/style.json`
-- **Satellite view**: `https://tiles.gebeta.app/styles/raster/raster.json`
+The style selector provides access to three map styles:
+- **Standard view**: `https://tiles.gebeta.app/styles/standard/style.json` - Vector map with labels
+- **Satellite view**: `https://tiles.gebeta.app/styles/raster/raster.json` - Satellite imagery with labels
+- **Terrain view**: `https://tiles.gebeta.app/styles/standard/terrain/terrain.json` - Vector map with terrain/elevation
 
-**Customizing toggle options:**
+**Customizing style selector options:**
 
 You can customize the style URLs and button images:
 
@@ -209,13 +210,15 @@ const map = gebetaMap.init({
   satelliteToggleOptions: {
     standardStyleUrl: 'https://tiles.gebeta.app/styles/standard/style.json',
     satelliteStyleUrl: 'https://tiles.gebeta.app/styles/raster/raster.json',
+    terrainStyleUrl: 'https://tiles.gebeta.app/styles/standard/terrain/terrain.json',
     standardImageUrl: 'https://tiles.gebeta.app/static/standard.jpg',
-    satelliteImageUrl: 'https://tiles.gebeta.app/static/satellite.jpg'
+    satelliteImageUrl: 'https://tiles.gebeta.app/static/satellite.jpg',
+    terrainImageUrl: 'https://tiles.gebeta.app/static/terrain.jpg'
   }
 });
 ```
 
-The toggle button displays a preview image of the view you'll switch to (not the current view). Clicking it instantly switches between standard and satellite styles.
+The selector button displays a preview image of the currently active style. Clicking it opens a popup menu showing all available styles with preview images. Selecting a style instantly switches the map view.
 
 #### Markers
 - `addImageMarker(lngLat, imageUrl, size, onClick, zIndex, popupHtml, options)` - Add a custom marker. Optionally attach a popup with HTML content. You may pass `options.id` to set a custom marker ID. Returns `{ marker, popup, id }`.

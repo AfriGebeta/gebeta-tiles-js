@@ -89,9 +89,11 @@
   <div class="control-panel">
     <h3>Custom Map Styles</h3>
     <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">
-      Use the toggle button at the bottom-right to switch between standard and satellite views.
+      Use the style selector at the bottom-right to switch between standard, satellite, and terrain views.
     </p>
-    <button onclick="usePlaygroundStyle()">Use Style from Playground JSON (below)</button>
+    <button onclick="useCustomStyleUrl()" class="primary">Use Custom Style URL</button>
+    <input type="text" id="customStyleUrl" placeholder="https://tiles.gebeta.app/styles/..." style="width: 100%; margin-top: 8px; padding: 6px 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; font-family: monospace;" />
+    <button onclick="usePlaygroundStyle()" style="margin-top: 10px;">Use Style from Playground JSON (below)</button>
     <textarea id="playgroundJson" placeholder="Paste style JSON exported from https://playground.tiles.gebeta.app/ here..."></textarea>
     <div class="hint">
       Design a style at
@@ -103,6 +105,7 @@
   </div>
 
   <!-- Use local UMD build so this works in this repo -->
+  <!-- <script src="https://tiles.gebeta.app/static/gebeta-maps.umd.js"></script> -->
   <script src="../dist/gebeta-maps.umd.js"></script>
   <!-- Shared config for API key -->
   <script src="config.js"></script>
@@ -114,7 +117,6 @@
     function initMapWithOptions(initOptions) {
       const config = loadConfig();
       const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
-
       // If a map already exists, remove it completely
       if (map) {
         try {
@@ -132,7 +134,7 @@
         container: 'map',
         center: [38.7685, 9.0161],
         zoom: 12,
-        satelliteToggle: true, // Enable satellite/standard toggle
+        satelliteToggle: true, // <-- Enable satellite/standard toggle
         ...initOptions
       });
 
@@ -141,6 +143,37 @@
           gebetaMap.addNavigationControls();
         } catch (_) {}
       });
+    }
+
+    function useCustomStyleUrl() {
+      const input = document.getElementById('customStyleUrl');
+      if (!input) {
+        alert('Custom style URL input not found.');
+        return;
+      }
+
+      const styleUrl = input.value.trim();
+      if (!styleUrl) {
+        alert('Please enter a style URL.');
+        return;
+      }
+
+      // Basic URL validation
+      try {
+        new URL(styleUrl);
+      } catch (e) {
+        alert('Invalid URL. Please enter a valid style URL (e.g., https://tiles.gebeta.app/styles/...).');
+        return;
+      }
+
+      try {
+        initMapWithOptions({
+          styleUrl: styleUrl
+        });
+      } catch (e) {
+        console.error('Error initializing map with custom style URL:', e);
+        alert('Error loading custom style URL: ' + e.message + '\n\nCheck the browser console for details.');
+      }
     }
 
     function usePlaygroundStyle() {
