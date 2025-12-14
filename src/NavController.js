@@ -115,7 +115,10 @@ class NavController extends SimpleEmitter {
     this._totalDistance = 0;
     this._stepIndex = 0;
     this._lastEmittedStepIndex = null;
+    this._lastEmittedInstruction = null;
     this._stopProvider = null;
+    this._turnPassedLocation = null; // Track location when we passed a turn
+    this._turnPassedStepIndex = null; // Track which step we passed
     this._trackingClient = null;
     this._useRemoteFeed = false;
     this._active = false;
@@ -132,7 +135,10 @@ class NavController extends SimpleEmitter {
     this._totalDistance = this._computeTotalDistance(route);
     this._stepIndex = 0;
     this._lastEmittedStepIndex = null;
+    this._lastEmittedInstruction = null;
     this._active = true;
+    this._turnPassedLocation = null;
+    this._turnPassedStepIndex = null;
 
     // Save current camera state
     this._savedCameraState = {
@@ -200,9 +206,15 @@ class NavController extends SimpleEmitter {
     }
 
     // Emit the first instruction immediately when starting
-    if (this._instructions.length > 0) {
-      this._lastEmittedStepIndex = 0;
-      this.emit('stepchange', { stepIndex: 0, step: this._instructions[0] });
+    // Show "Continue ahead" initially, or first instruction if it's not a turn
+    const firstStep = this._instructions[0] || null;
+    if (firstStep && !this._isTurnInstruction(firstStep)) {
+      this.emit('stepchange', { stepIndex: 0, step: firstStep });
+      this._lastEmittedInstruction = firstStep;
+    } else {
+      const continueStep = this._createContinueInstruction();
+      this.emit('stepchange', { stepIndex: null, step: continueStep });
+      this._lastEmittedInstruction = continueStep;
     }
     
     this.emit('start', { route, totalDistance: this._totalDistance });
@@ -220,6 +232,10 @@ class NavController extends SimpleEmitter {
       this._locationMarker.remove();
       this._locationMarker = null;
     }
+    
+    // Reset turn tracking
+    this._turnPassedLocation = null;
+    this._turnPassedStepIndex = null;
     
     // Restore camera state
     if (this._savedCameraState) {
@@ -306,6 +322,41 @@ class NavController extends SimpleEmitter {
     });
   }
 
+  _isTurnInstruction(step) {
+    if (!step) return false;
+    // Check if this is a turn instruction based on maneuver type
+    // Valhalla types: 8=Continue, 7=Becomes, 22=Stay straight are NOT turns
+    // Types 9-16, 18-21, 26-27 are turns
+    const type = step.type;
+    if (type === undefined || type === null) {
+      // If no type, check icon or instruction text
+      const icon = step.icon || '';
+      const instruction = (step.instruction || '').toLowerCase();
+      // If icon suggests a turn (not straight arrow) or instruction mentions turn
+      if (icon.includes('➡️') || icon.includes('⬅️') || icon.includes('↗️') || 
+          icon.includes('↖️') || icon.includes('↪️') || icon.includes('🔄') ||
+          instruction.includes('turn') || instruction.includes('left') || 
+          instruction.includes('right') || instruction.includes('roundabout')) {
+        return true;
+      }
+      return false;
+    }
+    // Turn types: 9-16 (slight/sharp/right/left turns), 18-21 (ramps/exits), 26-27 (roundabouts)
+    // Non-turn types: 0-8 (none/start/destination/continue), 22 (stay straight)
+    return (type >= 9 && type <= 16) || (type >= 18 && type <= 21) || type === 26 || type === 27;
+  }
+
+  _createContinueInstruction() {
+    return {
+      instruction: 'Continue ahead',
+      icon: '⬆️',
+      type: 8, // Continue type
+      coord: null,
+      time: null,
+      length: null
+    };
+  }
+
   _handleLocation(location) {
     if (!this._active || !location || !this.route?.geometry?.coordinates) return;
     const coords = this.route.geometry.coordinates;
@@ -338,17 +389,77 @@ class NavController extends SimpleEmitter {
       }
     }
 
-    // Emit the current step if it hasn't been emitted yet
-    const currentStep = this._instructions[this._stepIndex] || null;
-    if (currentStep && this._lastEmittedStepIndex !== this._stepIndex) {
-      this.emit('stepchange', { stepIndex: this._stepIndex, step: currentStep });
-      this._lastEmittedStepIndex = this._stepIndex;
+    // Determine what instruction to show
+    let instructionToShow = null;
+    const isTurn = this._isTurnInstruction(nextStep);
+    const TURN_APPROACH_DISTANCE = 50; // Show turn instructions when within 50m
+    const TURN_PASSED_BUFFER = 10; // Keep showing turn instruction for 10m after passing it
+
+    // Check if we're still within the buffer period after passing a turn
+    let withinTurnBuffer = false;
+    if (this._turnPassedLocation && this._turnPassedStepIndex === this._stepIndex) {
+      const distanceSinceTurn = haversine(
+        { lat: this._turnPassedLocation.lat, lng: this._turnPassedLocation.lng },
+        { lat: location.lat, lng: location.lng }
+      );
+      if (distanceSinceTurn <= TURN_PASSED_BUFFER) {
+        withinTurnBuffer = true;
+        // Show the turn instruction we just passed
+        instructionToShow = this._instructions[this._stepIndex] || null;
+      } else {
+        // Buffer period expired, clear tracking
+        this._turnPassedLocation = null;
+        this._turnPassedStepIndex = null;
+      }
+    }
+
+    if (!withinTurnBuffer) {
+      if (nextStep && isTurn) {
+        if (distToNext !== null) {
+          // Show turn instruction when approaching (within 50m)
+          if (distToNext <= TURN_APPROACH_DISTANCE) {
+            instructionToShow = nextStep;
+          } else {
+            // Too far from turn, show "Continue ahead"
+            instructionToShow = this._createContinueInstruction();
+          }
+        } else {
+          // No distance available, show turn instruction if it exists
+          instructionToShow = nextStep;
+        }
+      } else if (nextStep && !isTurn) {
+        // If current step is not a turn, show it (e.g., "Continue", "Becomes")
+        instructionToShow = nextStep;
+      } else {
+        // Otherwise show "Continue ahead"
+        instructionToShow = this._createContinueInstruction();
+      }
+    }
+
+    // Emit stepchange if instruction changed
+    const currentInstructionKey = instructionToShow ? 
+      (instructionToShow.instruction || '') + (instructionToShow.type || '') : 'none';
+    const lastInstructionKey = this._lastEmittedInstruction ? 
+      (this._lastEmittedInstruction.instruction || '') + (this._lastEmittedInstruction.type || '') : 'none';
+    
+    if (currentInstructionKey !== lastInstructionKey) {
+      this.emit('stepchange', { 
+        stepIndex: isTurn && nextStep ? this._stepIndex : null, 
+        step: instructionToShow 
+      });
+      this._lastEmittedInstruction = instructionToShow;
     }
     
     // Advance to next step only after we've passed the current step (within 20m)
     if (nextStep && distToNext !== null && distToNext < 20 && this._stepIndex < this._instructions.length - 1) {
+      // If this was a turn, track that we just passed it
+      if (isTurn) {
+        this._turnPassedLocation = { lat: location.lat, lng: location.lng };
+        this._turnPassedStepIndex = this._stepIndex;
+      }
       this._stepIndex += 1;
-      // The stepchange will be emitted on the next location update
+      // Reset last emitted instruction so next one will be shown
+      this._lastEmittedInstruction = null;
     }
 
     const offRoute = snapped.distance > this.options.offRouteThresholdMeters;
