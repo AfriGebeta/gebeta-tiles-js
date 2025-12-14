@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - Navigation with Simulated Location</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      max-width: 500px;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .controls h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    .controls p {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: #666;
+    }
+    .input-group {
+      margin-bottom: 12px;
+    }
+    .input-group label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: #007cbf;
+    }
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    button {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button.primary {
+      background: #007cbf;
+      color: white;
+    }
+    button.primary:hover {
+      background: #005a8b;
+    }
+    button.danger {
+      background: #e53955;
+      color: white;
+    }
+    button.danger:hover {
+      background: #c82333;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #f0f0f0;
+      color: #333;
+    }
+    .status.active {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .nav-toggle-btn {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #007cbf;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      padding: 12px 32px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+      cursor: pointer;
+      z-index: 1300;
+      width: 180px;
+      text-align: center;
+      transition: background-color 0.2s ease;
+      display: none;
+    }
+    .nav-toggle-btn.stop {
+      background: #e53955;
+    }
+    .controls.navigation-mode {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  
+  <div class="controls" id="controls">
+    <h3>Navigation with Simulated Location</h3>
+    <p>This example uses a custom location provider that simulates movement along a route. Perfect for testing tracking without moving your device.</p>
+    
+    <div class="input-group">
+      <label for="companyId">Company ID (required)</label>
+      <input type="text" id="companyId" placeholder="e.g., company-123" value="test-company" />
+    </div>
+    
+    <div class="input-group">
+      <label for="clientId">Client ID (required)</label>
+      <input type="text" id="clientId" placeholder="e.g., client-456" value="test-client" />
+    </div>
+    
+    <div class="input-group">
+      <label for="speed">Simulation Speed (km/h)</label>
+      <input type="number" id="speed" placeholder="30" value="30" min="1" max="120" />
+    </div>
+    
+    <div class="button-group">
+      <button class="primary" id="startBtn" onclick="startSimulation()">Start Navigation</button>
+    </div>
+    
+    <div class="status" id="status">Ready to start</div>
+  </div>
+
+  <button class="nav-toggle-btn" id="navToggleButton" onclick="toggleNavigation()">Stop Navigation</button>
+
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <script src="config.js"></script>
+  <script>
+    let gebetaMap;
+    let map;
+    let simulatedRoute = null;
+    let customLocationProvider = null;
+    let simulationInterval = null;
+    let currentRouteIndex = 0;
+    let navigationUI = null;
+
+    // NavigationUI class (embedded in example, not part of SDK)
+    class NavigationUI {
+      constructor(map, navController, options = {}) {
+        this.map = map;
+        this.nav = navController;
+        this.options = {
+          onStop: null,
+          ...options,
+        };
+        this._mounted = false;
+        this._container = null;
+        this._instructionEl = null;
+        this._instructionIconEl = null;
+        this._distanceEl = null;
+        this._timeEl = null;
+        this._stopBtn = null;
+        // Don't bind events here - wait until mount() is called
+      }
+
+      _bindEvents() {
+        if (!this.nav) return;
+        
+        this.nav.on('progress', (data) => {
+          this.update(data);
+        });
+        this.nav.on('stepchange', (data) => {
+          if (data.step) {
+            this._setInstruction(data.step);
+          }
+        });
+        this.nav.on('start', () => {
+          if (this.nav.route?.instructions?.[0]) {
+            this._setInstruction(this.nav.route.instructions[0]);
+          }
+        });
+        
+        // If navigation is already active when UI is mounted, update immediately
+        if (this.nav._active && this.nav.route?.instructions?.[0]) {
+          this._setInstruction(this.nav.route.instructions[0]);
+        }
+      }
+
+      mount() {
+        if (this._mounted) return;
+        this._injectStyles();
+        const parent = this.map?.getContainer?.();
+        if (!parent) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'gebeta-nav-wrapper';
+
+        const instructionCard = document.createElement('div');
+        instructionCard.className = 'gebeta-nav-card';
+        const icon = document.createElement('div');
+        icon.className = 'gebeta-nav-icon';
+        icon.textContent = '⬆️';
+        const instructionText = document.createElement('div');
+        instructionText.className = 'gebeta-nav-instruction';
+        instructionText.textContent = 'Ready';
+        instructionCard.appendChild(icon);
+        instructionCard.appendChild(instructionText);
+
+        const metrics = document.createElement('div');
+        metrics.className = 'gebeta-nav-metrics';
+        const distance = document.createElement('div');
+        distance.className = 'gebeta-nav-metric';
+        distance.innerHTML = `<div class="label">Distance</div><div class="value">--</div>`;
+        const time = document.createElement('div');
+        time.className = 'gebeta-nav-metric';
+        time.innerHTML = `<div class="label">Time</div><div class="value">--</div>`;
+        metrics.appendChild(distance);
+        metrics.appendChild(time);
+
+        wrapper.appendChild(instructionCard);
+        wrapper.appendChild(metrics);
+
+        parent.appendChild(wrapper);
+        this._container = wrapper;
+        this._instructionEl = instructionText;
+        this._instructionIconEl = icon;
+        this._distanceEl = distance.querySelector('.value');
+        this._timeEl = time.querySelector('.value');
+        this._mounted = true;
+        
+        // Now bind events after elements are created
+        this._bindEvents();
+      }
+
+      update(data) {
+        if (!this._mounted) return;
+        if (this._distanceEl && data.remainingDistance !== undefined) {
+          const km = (data.remainingDistance / 1000).toFixed(1);
+          this._distanceEl.textContent = `${km} km`;
+        }
+        if (this._timeEl && data.remainingDuration !== undefined) {
+          this._timeEl.textContent = `${data.remainingDuration} min`;
+        }
+      }
+
+      _setInstruction(step) {
+        if (!this._instructionEl || !this._instructionIconEl) return;
+        if (!step) {
+          this._instructionEl.textContent = 'Continue';
+          this._instructionIconEl.textContent = '⬆️';
+          return;
+        }
+        // Use icon from step if available, otherwise default
+        const icon = step.icon || '⬆️';
+        const instruction = step.instruction || step.path || step.turn || 'Continue';
+        this._instructionIconEl.textContent = icon;
+        this._instructionEl.textContent = instruction;
+      }
+
+
+      hide() {
+        if (this._container) {
+          this._container.remove();
+          this._container = null;
+        }
+        this._mounted = false;
+      }
+
+      _injectStyles() {
+        if (document.getElementById('gebeta-nav-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'gebeta-nav-styles';
+        style.textContent = `
+          .gebeta-nav-wrapper {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            max-width: 400px;
+            z-index: 1000;
+          }
+          .gebeta-nav-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+          .gebeta-nav-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: #0c7bdc;
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+            font-weight: 700;
+            flex-shrink: 0;
+          }
+          .gebeta-nav-instruction {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+          }
+          .gebeta-nav-metrics {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            gap: 12px;
+          }
+          .gebeta-nav-metric {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          }
+          .gebeta-nav-metric .label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+          }
+          .gebeta-nav-metric .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #007cbf;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+
+    // Custom location provider that simulates movement along a route
+    function createSimulatedLocationProvider(route, speedKmh = 30) {
+      if (!route || !route.geometry || !route.geometry.coordinates) {
+        throw new Error('Route with geometry.coordinates is required');
+      }
+
+      const coordinates = route.geometry.coordinates; // [lng, lat] format
+      let currentIndex = 0;
+      let intervalId = null;
+      let onLocationCallbacks = []; // Support multiple callbacks
+
+      // Calculate distance between two points in meters
+      function haversineDistance(coord1, coord2) {
+        const R = 6371000; // Earth radius in meters
+        const lat1 = coord1[1] * Math.PI / 180;
+        const lat2 = coord2[1] * Math.PI / 180;
+        const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
+        const dLng = (coord2[0] - coord1[0]) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      // Calculate bearing between two points
+      function calculateBearing(coord1, coord2) {
+        const lat1 = coord1[1] * Math.PI / 180;
+        const lat2 = coord2[1] * Math.PI / 180;
+        const dLng = (coord2[0] - coord1[0]) * Math.PI / 180;
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        const bearing = Math.atan2(y, x);
+        return (bearing * 180 / Math.PI + 360) % 360;
+      }
+
+      // Interpolate between two coordinates
+      function interpolate(coord1, coord2, fraction) {
+        return [
+          coord1[0] + (coord2[0] - coord1[0]) * fraction,
+          coord1[1] + (coord2[1] - coord1[1]) * fraction
+        ];
+      }
+
+      return {
+        start: (onLocation) => {
+          // Add callback to list (support multiple consumers)
+          if (onLocationCallbacks.indexOf(onLocation) === -1) {
+            onLocationCallbacks.push(onLocation);
+          }
+          
+          // Start simulation if not already running
+          if (intervalId === null) {
+            currentIndex = 0;
+          
+            // Start from first coordinate
+            const startCoord = coordinates[0];
+            const startLocation = {
+              lat: startCoord[1],
+              lng: startCoord[0],
+              speed: speedKmh * 1000 / 3600, // Convert km/h to m/s
+              bearing: coordinates.length > 1 ? calculateBearing(coordinates[0], coordinates[1]) : 0,
+              timestamp: Date.now()
+            };
+            onLocationCallbacks.forEach(cb => cb(startLocation));
+
+          // Calculate update interval based on speed
+          // Update every second, moving at the specified speed
+          const speedMs = speedKmh * 1000 / 3600; // m/s
+          const updateInterval = 1000; // 1 second
+          let segmentProgress = 0;
+          let currentSegment = 0;
+
+          intervalId = setInterval(() => {
+            if (currentSegment >= coordinates.length - 1) {
+              // Reached destination
+              clearInterval(intervalId);
+              return;
+            }
+
+            const coord1 = coordinates[currentSegment];
+            const coord2 = coordinates[currentSegment + 1];
+            const segmentDistance = haversineDistance(coord1, coord2);
+            const distancePerUpdate = speedMs; // meters per update (1 second)
+            
+            segmentProgress += distancePerUpdate / segmentDistance;
+
+            if (segmentProgress >= 1) {
+              // Move to next segment
+              segmentProgress = 0;
+              currentSegment++;
+              
+              if (currentSegment >= coordinates.length - 1) {
+                // Reached destination
+                clearInterval(intervalId);
+                return;
+              }
+            }
+
+            // Interpolate position
+            const nextCoord1 = coordinates[currentSegment];
+            const nextCoord2 = coordinates[currentSegment + 1];
+            const [lng, lat] = interpolate(nextCoord1, nextCoord2, segmentProgress);
+            const bearing = calculateBearing(nextCoord1, nextCoord2);
+
+            const location = {
+              lat,
+              lng,
+              speed: speedMs,
+              bearing,
+              timestamp: Date.now()
+            };
+
+            // Call all registered callbacks
+            onLocationCallbacks.forEach(callback => {
+              try {
+                callback(location);
+              } catch (err) {
+                console.error('Error in location callback:', err);
+              }
+            });
+          }, updateInterval);
+
+          }
+          
+          // Return stop function for this specific callback
+          return () => {
+            const index = onLocationCallbacks.indexOf(onLocation);
+            if (index > -1) {
+              onLocationCallbacks.splice(index, 1);
+            }
+            // Stop interval if no more callbacks
+            if (onLocationCallbacks.length === 0 && intervalId) {
+              clearInterval(intervalId);
+              intervalId = null;
+            }
+          };
+        },
+        stop: () => {
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          onLocationCallbacks = [];
+        }
+      };
+    }
+
+    async function startSimulation() {
+      const companyId = document.getElementById('companyId').value.trim();
+      const clientId = document.getElementById('clientId').value.trim();
+      const speed = parseFloat(document.getElementById('speed').value) || 30;
+
+      if (!companyId || !clientId) {
+        updateStatus('Please provide both Company ID and Client ID', 'error');
+        return;
+      }
+
+      try {
+        updateStatus('Calculating route...', '');
+        
+        // Define a test route (Addis Ababa area)
+        const origin = { lat: 9.0050, lng: 38.7500 };
+        const destination = { lat: 9.0300, lng: 38.8000 };
+
+        // Get route
+        const route = await gebetaMap.getDirections(origin, destination);
+        simulatedRoute = route;
+
+        // Display route on map
+        gebetaMap.displayRoute(route, { showMarkers: true });
+
+        // Create custom location provider
+        customLocationProvider = createSimulatedLocationProvider(route, speed);
+
+        updateStatus('Starting navigation with simulated location...', '');
+
+        // Start navigation with custom provider
+        await gebetaMap.startNavigation({
+          route,
+          companyId,
+          clientId,
+          locationProvider: customLocationProvider
+        });
+
+        // Create and mount navigation UI
+        const navController = gebetaMap.getNavigationController();
+        if (!navigationUI) {
+          navigationUI = new NavigationUI(map, navController, {
+            onStop: () => {
+              stopSimulation();
+            }
+          });
+          navigationUI.mount();
+        }
+        
+
+        // Update UI
+        document.getElementById('controls').classList.add('navigation-mode');
+        document.getElementById('navToggleButton').style.display = 'block';
+        updateStatus('Navigation active - location is being simulated', 'active');
+        document.getElementById('startBtn').disabled = true;
+
+      } catch (error) {
+        console.error('Error starting simulation:', error);
+        updateStatus('Error: ' + error.message, 'error');
+      }
+    }
+
+    function stopSimulation() {
+      gebetaMap.stopNavigation();
+      
+      if (customLocationProvider) {
+        customLocationProvider.stop();
+        customLocationProvider = null;
+      }
+
+      if (navigationUI) {
+        navigationUI.hide();
+        navigationUI = null;
+      }
+
+      // Update UI
+      document.getElementById('controls').classList.remove('navigation-mode');
+      document.getElementById('navToggleButton').style.display = 'none';
+      updateStatus('Navigation stopped', '');
+      document.getElementById('startBtn').disabled = false;
+    }
+
+    function toggleNavigation() {
+      const navController = gebetaMap.getNavigationController();
+      const isNavigating = navController && navController._active;
+      
+      if (isNavigating) {
+        stopSimulation();
+      }
+    }
+
+    function updateStatus(message, type) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    // Initialize map
+    window.addEventListener('DOMContentLoaded', async () => {
+      const config = loadConfig();
+      const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+      
+      gebetaMap = new GebetaMaps({ 
+        apiKey: MY_GEBETA_API_KEY
+      });
+
+      map = gebetaMap.init({
+        container: 'map',
+        center: [38.7750, 9.0175],
+        zoom: 12,
+      });
+
+      map.on('load', () => {
+        gebetaMap.addNavigationControls();
+        updateStatus('Map loaded - ready to start simulation', '');
+      });
+    });
+  </script>
+</body>
+</html>
+

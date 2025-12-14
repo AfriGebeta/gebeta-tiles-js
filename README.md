@@ -7,6 +7,8 @@ A JavaScript mapping library that provides an easy-to-use interface for creating
 - **Marker Clustering**: Automatic clustering of nearby markers with configurable radius and zoom levels
 - **Fence Drawing**: Interactive polygon drawing with dynamic preview and multi-fence support
 - **Custom Markers**: Support for custom marker images and click handlers
+- **Navigation & Tracking**: Turn-by-turn navigation with automatic GPS tracking and WebSocket location updates
+- **Turn-by-Turn Instructions**: Detailed navigation instructions with icons from Valhalla routing API
 - **Style Selector**: Built-in style selector with popup menu to switch between standard vector, satellite, and terrain views
 - **Custom Map Styles**: Support for custom style URLs and inline style JSON objects
 - **API Key Authentication**: Secure tile access with Bearer token authentication
@@ -112,7 +114,37 @@ gebetaMap.initFenceManager('#ff6600'); // Orange default color
 #### Map Initialization
 - `init(options)` - Initialize the map
 - `on(event, handler)` - Add event listeners to the map
-- `addNavigationControls(position)` - Add zoom/pan controls
+- `addNavigationControls(position)` - Add zoom/pan controls (can also be enabled via `init()` options)
+
+**Navigation Controls (Zoom +/- buttons)**
+
+You can enable the MapLibre zoom controls (+/- buttons) in two ways:
+
+**Option 1: Enable via `init()` options (recommended)**
+
+```javascript
+const map = gebetaMap.init({
+  container: 'map',
+  center: [38.7685, 9.0161],
+  zoom: 12,
+  navigationControl: true,  // Enable zoom controls
+  navigationControlPosition: 'top-right'  // Optional: position (default: 'top-right')
+});
+```
+
+**Option 2: Add manually after initialization**
+
+```javascript
+const map = gebetaMap.init({
+  container: 'map',
+  center: [38.7685, 9.0161],
+  zoom: 12
+});
+
+map.on('load', () => {
+  gebetaMap.addNavigationControls('top-right');  // Position: 'top-right', 'top-left', 'bottom-right', 'bottom-left'
+});
+```
 
 ##### Custom Map Styles
 
@@ -418,6 +450,29 @@ This library is provided by Gebeta Maps. Please refer to the Gebeta Maps terms o
 ## Support
 
 For support and documentation, visit [gebetamaps.com](https://gebetamaps.com)
+
+## Navigation & Tracking
+
+The SDK provides navigation and tracking with automatic location updates and turn-by-turn instructions.
+
+See [Navigation & Tracking Usage Guide](NAVIGATION_USAGE.md) for documentation.
+
+```javascript
+await gebetaMap.startNavigation({
+  origin: { lat: 9.01, lng: 38.67 },
+  destination: { lat: 8.98, lng: 38.88 },
+  companyId: 'your-company-id',
+  clientId: 'unique-client-id'
+});
+
+const navController = gebetaMap.getNavigationController();
+navController.on('stepchange', (data) => {
+  console.log('Next turn:', data.step.instruction);
+});
+navController.on('progress', (data) => {
+  console.log('Distance remaining:', data.remainingDistance, 'm');
+});
+```
 
 ## Directions API Usage
 

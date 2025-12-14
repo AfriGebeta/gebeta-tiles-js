@@ -3,6 +3,8 @@ import ClusteringManager from './ClusteringManager.js';
 import FenceManager from './FenceManager.js';
 import DirectionsManager from './DirectionsManager.js';
 import GeocodingManager from './GeocodingManager.js';
+import NavController from './NavController.js';
+import TrackingClient from './TrackingClient.js';
 import './style.css';
 
 class GebetaMaps {
@@ -28,6 +30,10 @@ class GebetaMaps {
 
     // Directions manager
     this.directionsManager = null;
+
+    // Navigation / tracking
+    this.navController = null;
+    this.trackingClient = null;
 
     this.geocodingManager = new GeocodingManager(apiKey);
 
@@ -128,6 +134,12 @@ class GebetaMaps {
     // Add fullscreen control by default (can be disabled with options.fullscreenControl = false)
     if (!options || options.fullscreenControl !== false) {
       try { this.addFullscreenPopupControl(); } catch (e) {}
+    }
+
+    // Add navigation controls (zoom +/-) if enabled (default: false)
+    if (options && options.navigationControl === true) {
+      const navPosition = options.navigationControlPosition || 'top-right';
+      try { this.addNavigationControls(navPosition); } catch (e) {}
     }
 
     // Add style selector if enabled
@@ -279,6 +291,130 @@ class GebetaMaps {
   initDirectionsManager() {
     if (!this.map) return;
     this.directionsManager = new DirectionsManager(this.map, this.apiKey);
+  }
+
+  createTrackingClient(options = {}) {
+    this.trackingClient = new TrackingClient(options);
+    return this.trackingClient;
+  }
+
+  initNavigationController() {
+    if (!this.map) return;
+    if (!this.directionsManager) this.initDirectionsManager();
+    this.navController = new NavController(this.map, this.directionsManager, {});
+  }
+
+  /**
+   * Set the current route for navigation UI.
+   */
+  setNavigationRoute(routeData) {
+    if (!this.navController) return;
+    // Legacy compatibility: start navigation with provided route without starting position tracking
+    this.navController.route = routeData;
+  }
+
+  /**
+   * Start navigation. Tracking happens automatically.
+   * Options can include:
+   * - route: route object from DirectionsManager (if provided, uses this directly)
+   * - origin: {lat, lng} - if route not provided, will calculate route from origin to destination
+   * - destination: {lat, lng} - required if route not provided
+   * - waypoints: array of {lat, lng} - optional waypoints for route calculation
+   * - companyId: string - required, automatically starts tracking to WebSocket server
+   * - clientId: string - required, automatically starts tracking to WebSocket server
+   * - useRemoteFeed: boolean to use tracking feed instead of device GPS (advanced)
+   * - locationProvider: custom provider with start(cb)->stop() (advanced)
+   */
+  async startNavigation(options = {}) {
+    if (!this.navController) {
+      this.initNavigationController();
+    }
+    
+    const { 
+      route, 
+      origin, 
+      destination, 
+      waypoints = [],
+      companyId,
+      clientId,
+      useRemoteFeed = false, 
+      locationProvider = null 
+    } = options;
+    
+    // Require companyId and clientId
+    if (!companyId || !clientId) {
+      throw new Error('startNavigation requires both companyId and clientId');
+    }
+    
+    let routeToUse = route;
+    
+    // If no route provided, calculate it from origin/destination
+    if (!routeToUse) {
+      if (!origin || !destination) {
+        throw new Error('startNavigation requires either a route or both origin and destination');
+      }
+      
+      try {
+        routeToUse = await this.getDirections(origin, destination, { waypoints });
+        // Display the route on the map
+        this.displayRoute(routeToUse, { showMarkers: false });
+      } catch (error) {
+        console.error('Error calculating route for navigation:', error);
+        throw error;
+      }
+    }
+    
+    // Automatically create and start tracking client
+    // If a custom locationProvider is provided, use it for tracking too
+    // Note: role is set to 'driver' by default in TrackingClient since we use 'driver_location' action
+    if (!this.trackingClient) {
+      this.trackingClient = new TrackingClient({
+        companyId,
+        clientId,
+        role: 'driver', // Use 'driver' role for tracking (even though we call them clients)
+        sendIntervalMs: 5000,
+        locationProvider: locationProvider || undefined // Use custom provider if provided
+      });
+    } else {
+      // Update IDs if they changed
+      this.trackingClient.setCompanyId(companyId);
+      this.trackingClient.setClientId(clientId);
+      // Update location provider if a custom one is provided
+      if (locationProvider) {
+        this.trackingClient._locationProvider = locationProvider;
+      }
+    }
+    
+    // Start tracking (connect to WebSocket and begin sending location)
+    let trackingClient = null;
+    try {
+      await this.trackingClient.start();
+      trackingClient = this.trackingClient;
+    } catch (error) {
+      console.warn('[GebetaMaps] Failed to start tracking client:', error);
+      // Continue with navigation even if tracking fails
+    }
+    
+    // Start navigation with the route
+    this.navController.start(routeToUse, {
+      trackingClient: trackingClient,
+      useRemoteFeed,
+      locationProvider,
+    });
+  }
+
+  stopNavigation() {
+    if (!this.navController) return;
+    this.navController.stop();
+    
+    // Automatically stop tracking if it was started
+    if (this.trackingClient) {
+      this.trackingClient.disconnect();
+    }
+  }
+
+  getNavigationController() {
+    return this.navController;
   }
 
   on(event, handler) {

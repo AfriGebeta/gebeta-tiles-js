@@ -121,6 +121,8 @@ class DirectionsManager {
     const params = new URLSearchParams({
       origin: `${origin.lat},${origin.lng}`,
       destination: `${destination.lat},${destination.lng}`,
+      instruction: '1', // Always request turn-by-turn instructions
+      format:'valhalla',
       apiKey: this.apiKey
     });
 
@@ -152,6 +154,105 @@ class DirectionsManager {
   }
 
   /**
+   * Decode encoded polyline string (Valhalla format)
+   * Valhalla uses standard polyline encoding: [lat, lng] pairs
+   * @param {string} encoded - Encoded polyline string
+   * @returns {Array} - Array of [lng, lat] coordinates (MapLibre format)
+   */
+  _decodePolyline(encoded) {
+    if (!encoded || typeof encoded !== 'string') {
+      return [];
+    }
+
+    const coordinates = [];
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+
+    const decodeValue = () => {
+      let shift = 0;
+      let result = 0;
+      let byte;
+      do {
+        if (index >= encoded.length) {
+          throw new Error('Unexpected end of polyline string');
+        }
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+      const delta = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+      return delta;
+    };
+
+    try {
+      while (index < encoded.length) {
+        // Decode latitude (first in standard polyline encoding)
+        lat += decodeValue();
+        // Decode longitude (second in standard polyline encoding)
+        lng += decodeValue();
+
+        // Convert from 1e-5 degrees to actual degrees
+        const latDeg = lat * 1e-5;
+        const lngDeg = lng * 1e-5;
+
+        // Always add coordinates - we'll validate and fix order later
+        coordinates.push([lngDeg, latDeg]);
+      }
+    } catch (error) {
+      console.error('Error decoding polyline:', error);
+      return [];
+    }
+
+    return coordinates;
+  }
+
+  /**
+   * Get icon for maneuver type
+   * @param {number} type - Maneuver type
+   * @returns {string} - Icon emoji/character
+   */
+  _getManeuverIcon(type) {
+    // Valhalla maneuver types: https://github.com/valhalla/valhalla/blob/master/valhalla/proto/directions.proto
+    const iconMap = {
+      0: '📍', // None
+      1: '📍', // Start
+      2: '🏁', // Start right
+      3: '⬆️', // Start left
+      4: '⬆️', // Destination
+      5: '🏁', // Destination right
+      6: '🏁', // Destination left
+      7: '⬆️', // Becomes
+      8: '↩️', // Continue
+      9: '↩️', // Slight right
+      10: '➡️', // Right
+      11: '↪️', // Sharp right
+      12: '↩️', // U-turn right
+      13: '↩️', // U-turn left
+      14: '↪️', // Sharp left
+      15: '⬅️', // Left
+      16: '↩️', // Slight left
+      17: '⬆️', // Ramp straight
+      18: '↗️', // Ramp right
+      19: '↖️', // Ramp left
+      20: '↗️', // Exit right
+      21: '↖️', // Exit left
+      22: '⬆️', // Stay straight
+      23: '↗️', // Stay right
+      24: '↖️', // Stay left
+      25: '↗️', // Merge
+      26: '🔄', // Roundabout enter
+      27: '🔄', // Roundabout exit
+      28: '↗️', // Ferry enter
+      29: '↗️', // Ferry exit
+      30: '↗️', // Transit
+      31: '↗️', // Transit connection
+      32: '↗️', // Post transit connection
+    };
+    return iconMap[type] || '⬆️';
+  }
+
+  /**
    * Transform the API response to our internal format
    * @param {Object} apiResponse - Raw API response
    * @param {Object} origin - Origin coordinates
@@ -160,12 +261,15 @@ class DirectionsManager {
    * @returns {Object} - Transformed route data
    */
   _transformApiResponse(apiResponse, origin, destination, avgSpeedKmh = 30) {
-    // Extract coordinates from the direction array
+    // Check if this is Valhalla format
+    if (apiResponse.trip && apiResponse.trip.legs && apiResponse.trip.legs.length > 0) {
+      return this._transformValhallaResponse(apiResponse, origin, destination, avgSpeedKmh);
+    }
+
+    // Legacy format
     const coordinates = apiResponse.direction || [];
-    // Transform coordinates to [lng, lat] format for MapLibre
     const transformedCoordinates = coordinates.map(coord => [coord[1], coord[0]]);
 
-    // Map instructions to include coord property
     const instructions = (apiResponse.instruction || []).map(step => ({
       ...step,
       coord: [step.turning_latitude, step.turning_longitude]
@@ -190,6 +294,138 @@ class DirectionsManager {
       instructions
     };
   }
+
+  /**
+   * Transform Valhalla format API response
+   * @param {Object} apiResponse - Valhalla API response
+   * @param {Object} origin - Origin coordinates
+   * @param {Object} destination - Destination coordinates
+   * @param {number} avgSpeedKmh - Average speed in km/h
+   * @returns {Object} - Transformed route data
+   */
+  _transformValhallaResponse(apiResponse, origin, destination, avgSpeedKmh = 30) {
+    const leg = apiResponse.trip.legs[0];
+    const summary = apiResponse.trip.summary || leg.summary;
+
+    // Decode polyline to get coordinates
+    let coordinates = leg.shape ? this._decodePolyline(leg.shape) : [];
+    
+    // Use trip locations to validate and fix coordinate order/scale
+    if (coordinates.length > 0 && apiResponse.trip.locations && apiResponse.trip.locations.length >= 2) {
+      const startLocation = apiResponse.trip.locations[0];
+      const endLocation = apiResponse.trip.locations[apiResponse.trip.locations.length - 1];
+      
+      const expectedStartLat = startLocation.lat;
+      const expectedStartLng = startLocation.lon || startLocation.lng;
+      const expectedEndLat = endLocation.lat;
+      const expectedEndLng = endLocation.lon || endLocation.lng;
+      
+      const firstCoord = coordinates[0];
+      const lastCoord = coordinates[coordinates.length - 1];
+      
+      // Check if coordinates need to be swapped or scaled
+      // Try different combinations to find the best match
+      const options = [
+        { coords: coordinates, desc: 'original [lng, lat]' },
+        { coords: coordinates.map(c => [c[1], c[0]]), desc: 'swapped [lat, lng]' },
+        { coords: coordinates.map(c => [c[0] / 10, c[1] / 10]), desc: 'scaled /10 [lng, lat]' },
+        { coords: coordinates.map(c => [c[1] / 10, c[0] / 10]), desc: 'swapped and scaled /10 [lat, lng]' },
+      ];
+      
+      let bestOption = options[0];
+      let bestScore = Infinity;
+      
+      for (const option of options) {
+        const first = option.coords[0];
+        const last = option.coords[option.coords.length - 1];
+        
+        // Calculate error for start and end points
+        const startError = Math.abs(first[0] - expectedStartLng) + Math.abs(first[1] - expectedStartLat);
+        const endError = Math.abs(last[0] - expectedEndLng) + Math.abs(last[1] - expectedEndLat);
+        const totalError = startError + endError;
+        
+        if (totalError < bestScore) {
+          bestScore = totalError;
+          bestOption = option;
+        }
+      }
+      
+      // Use the best option if error is reasonable (< 1 degree)
+      if (bestScore < 1.0) {
+        coordinates = bestOption.coords;
+      } else {
+        // If no good match, try using locations directly
+        coordinates = apiResponse.trip.locations.map(loc => [loc.lon || loc.lng, loc.lat]);
+      }
+    }
+
+    // Transform maneuvers into instructions
+    const instructions = (leg.maneuvers || []).map((maneuver, index) => {
+      // Get coordinate for this maneuver from the shape using begin_shape_index
+      let coord = null;
+      if (maneuver.begin_shape_index !== undefined && coordinates[maneuver.begin_shape_index]) {
+        coord = coordinates[maneuver.begin_shape_index];
+      } else if (coordinates.length > 0) {
+        // Fallback to first coordinate if index not available
+        coord = coordinates[0];
+      }
+
+      return {
+        type: maneuver.type,
+        instruction: maneuver.instruction,
+        verbal_pre_transition_instruction: maneuver.verbal_pre_transition_instruction,
+        verbal_post_transition_instruction: maneuver.verbal_post_transition_instruction,
+        bearing_after: maneuver.bearing_after,
+        time: maneuver.time,
+        length: maneuver.length,
+        coord: coord, // [lng, lat] format
+        icon: this._getManeuverIcon(maneuver.type),
+        index: index
+      };
+    });
+
+    // Calculate total distance and time from summary
+    const totalDistance = summary?.length ? summary.length * 1000 : null; // Convert km to meters
+    const totalTime = summary?.time || null; // Already in seconds
+
+    return {
+      ...apiResponse,
+      geometry: {
+        type: 'LineString',
+        coordinates: coordinates
+      },
+      origin: {
+        lat: origin.lat,
+        lng: origin.lng
+      },
+      destination: {
+        lat: destination.lat,
+        lng: destination.lng
+      },
+      distance: totalDistance ? `${(totalDistance / 1000).toFixed(2)} km` : null,
+      duration: totalTime ? this._formatDuration(totalTime) : (totalDistance ? this._estimateDuration(totalDistance, avgSpeedKmh) : null),
+      totalDistance: totalDistance,
+      totalTime: totalTime,
+      instructions: instructions
+    };
+  }
+
+  /**
+   * Format duration from seconds to human-readable string
+   * @param {number} seconds - Duration in seconds
+   * @returns {string} - Formatted duration
+   */
+  _formatDuration(seconds) {
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) {
+      return `${minutes} min`;
+    } else {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+  }
+
 
   /**
    * Estimate travel time based on distance (assuming average speed in km/h)
