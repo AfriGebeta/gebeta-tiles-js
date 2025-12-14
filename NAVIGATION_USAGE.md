@@ -2,7 +2,7 @@
 
 ## Overview
 
-Navigation provides turn-by-turn directions with automatic location tracking. When you start navigation with `companyId` and `clientId`, tracking happens automatically.
+Navigation provides turn-by-turn directions with automatic location tracking. When you start navigation with `userId`, tracking happens automatically using the API key from the GebetaMaps constructor.
 
 ## Basic Usage
 
@@ -15,14 +15,13 @@ await gebetaMap.init({ container: 'map' });
 await gebetaMap.startNavigation({
   origin: { lat: 9.01, lng: 38.67 },
   destination: { lat: 8.98, lng: 38.88 },
-  companyId: 'your-company-id',
-  clientId: 'unique-client-id'
+  userId: 'unique-user-id',
+  role: 'driver' // optional, defaults to driver
 });
 ```
 
 Required parameters:
-- `companyId` (string): Company identifier for tracking
-- `clientId` (string): Unique identifier for the client being tracked
+- `userId` (string): Unique identifier for the user being tracked
 - Either `route` OR both `origin` and `destination` must be provided
 
 ### Listen to Navigation Events
@@ -89,14 +88,15 @@ console.log('Instructions:', route.instructions);
 
 ## What Happens Automatically
 
-When `startNavigation()` is called with `companyId` and `clientId`:
+When `startNavigation()` is called with `userId`:
 1. Route is calculated (if origin/destination provided)
 2. GPS tracking starts
-3. Location updates are sent to WebSocket server every 5 seconds
-4. Map camera adjusts for navigation view
-5. Turn-by-turn instructions are provided via `stepchange` events
-6. Current location marker is displayed
-7. Progress updates are emitted via `progress` events
+3. WebSocket connection is established and authenticated
+4. Location updates are sent to WebSocket server every 5 seconds
+5. Map camera adjusts for navigation view
+6. Turn-by-turn instructions are provided via `stepchange` events
+7. Current location marker is displayed
+8. Progress updates are emitted via `progress` events
 
 When `stopNavigation()` is called:
 1. Navigation stops
@@ -113,8 +113,8 @@ When `stopNavigation()` is called:
 const route = await gebetaMap.getDirections(origin, destination);
 await gebetaMap.startNavigation({ 
   route,
-  companyId: 'company-123',
-  clientId: 'client-456'
+  userId: 'user-123',
+  role: 'driver'
 });
 ```
 
@@ -149,8 +149,8 @@ await gebetaMap.startNavigation({
   origin: { lat: 9.01, lng: 38.67 },
   destination: { lat: 8.98, lng: 38.88 },
   locationProvider: customProvider,
-  companyId: 'company-123',
-  clientId: 'client-456'
+  userId: 'user-123',
+  role: 'driver'
 });
 ```
 

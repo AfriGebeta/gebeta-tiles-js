@@ -164,20 +164,13 @@
       />
       <button id="searchBtn" onclick="searchDestination()">Search</button>
     </div>
-    <div style="margin-top: 8px; display: flex; gap: 8px;">
-      <input 
-        type="text" 
-        id="companyId" 
-        placeholder="Company ID" 
-        value="test-company"
-        style="flex: 1; padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
-      />
+    <div style="margin-top: 8px;">
       <input 
         type="text" 
         id="clientId" 
-        placeholder="Client ID" 
-        value="test-client"
-        style="flex: 1; padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+        placeholder="User ID (e.g., DR_1)" 
+        value="DR_1"
+        style="width: 100%; padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
       />
     </div>
     <div id="searchResults" class="search-results"></div>
@@ -800,12 +793,11 @@
         gebetaMap.initNavigationController();
         const navController = gebetaMap.getNavigationController();
         
-        // Get companyId and clientId from inputs
-        const companyId = document.getElementById('companyId').value.trim();
-        const clientId = document.getElementById('clientId').value.trim();
+        // Get user ID from input
+        const userId = document.getElementById('clientId').value.trim() || 'DR_1';
         
-        if (!companyId || !clientId) {
-          showStatus('Please enter both Company ID and Client ID', 'error');
+        if (!userId) {
+          showStatus('Please provide user ID', 'error');
           return;
         }
         
@@ -813,8 +805,8 @@
         await gebetaMap.startNavigation({
           origin: currentLocation,
           destination: destinationLocation,
-          companyId,
-          clientId,
+          userId,
+          role: 'driver',
           useRemoteFeed: false,
           locationProvider: locationProvider,
         });

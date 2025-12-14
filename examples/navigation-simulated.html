@@ -146,13 +146,8 @@
     <p>This example uses a custom location provider that simulates movement along a route. Perfect for testing tracking without moving your device.</p>
     
     <div class="input-group">
-      <label for="companyId">Company ID (required)</label>
-      <input type="text" id="companyId" placeholder="e.g., company-123" value="test-company" />
-    </div>
-    
-    <div class="input-group">
-      <label for="clientId">Client ID (required)</label>
-      <input type="text" id="clientId" placeholder="e.g., client-456" value="test-client" />
+      <label for="userId">User ID (required)</label>
+      <input type="text" id="userId" placeholder="e.g., DR_1" value="DR_1" />
     </div>
     
     <div class="input-group">
@@ -371,12 +366,11 @@
     }
 
     async function startSimulation() {
-      const companyId = document.getElementById('companyId').value.trim();
-      const clientId = document.getElementById('clientId').value.trim();
+      const userId = document.getElementById('userId').value.trim() || 'DR_1';
       const speed = parseFloat(document.getElementById('speed').value) || 30;
 
-      if (!companyId || !clientId) {
-        updateStatus('Please provide both Company ID and Client ID', 'error');
+      if (!userId) {
+        updateStatus('Please provide user ID', 'error');
         return;
       }
 
@@ -410,8 +404,8 @@
         // Start navigation with custom provider
         await gebetaMap.startNavigation({
           route,
-          companyId,
-          clientId,
+          userId,
+          role: 'driver',
           locationProvider: customLocationProvider
         });
 

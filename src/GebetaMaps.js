@@ -320,8 +320,8 @@ class GebetaMaps {
    * - origin: {lat, lng} - if route not provided, will calculate route from origin to destination
    * - destination: {lat, lng} - required if route not provided
    * - waypoints: array of {lat, lng} - optional waypoints for route calculation
-   * - companyId: string - required, automatically starts tracking to WebSocket server
-   * - clientId: string - required, automatically starts tracking to WebSocket server
+   * - userId: string - required for tracking, user identifier
+   * - role: string - optional, defaults to 'driver'
    * - useRemoteFeed: boolean to use tracking feed instead of device GPS (advanced)
    * - locationProvider: custom provider with start(cb)->stop() (advanced)
    */
@@ -335,15 +335,15 @@ class GebetaMaps {
       origin, 
       destination, 
       waypoints = [],
-      companyId,
-      clientId,
+      userId,
+      role = 'driver',
       useRemoteFeed = false, 
       locationProvider = null 
     } = options;
     
-    // Require companyId and clientId
-    if (!companyId || !clientId) {
-      throw new Error('startNavigation requires both companyId and clientId');
+    // Require API key and userId for tracking
+    if (!this.apiKey || !userId) {
+      throw new Error('startNavigation requires userId for tracking. API key must be provided to GebetaMaps constructor.');
     }
     
     let routeToUse = route;
@@ -366,19 +366,18 @@ class GebetaMaps {
     
     // Automatically create and start tracking client
     // If a custom locationProvider is provided, use it for tracking too
-    // Note: role is set to 'driver' by default in TrackingClient since we use 'driver_location' action
     if (!this.trackingClient) {
       this.trackingClient = new TrackingClient({
-        companyId,
-        clientId,
-        role: 'driver', // Use 'driver' role for tracking (even though we call them clients)
+        bearerToken: this.apiKey,
+        userId,
+        role: role || 'driver',
         sendIntervalMs: 5000,
         locationProvider: locationProvider || undefined // Use custom provider if provided
       });
     } else {
-      // Update IDs if they changed
-      this.trackingClient.setCompanyId(companyId);
-      this.trackingClient.setClientId(clientId);
+      // Update userId and token if they changed
+      this.trackingClient.setUserId(userId);
+      this.trackingClient.setBearerToken(this.apiKey);
       // Update location provider if a custom one is provided
       if (locationProvider) {
         this.trackingClient._locationProvider = locationProvider;

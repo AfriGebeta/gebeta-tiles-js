@@ -95,18 +95,20 @@ class TrackingClient extends SimpleEmitter {
     super();
     const {
       url = 'wss://track.gebeta.app/v1/track',
-      companyId,
-      clientId,
-      role = 'driver', // Default to 'driver' since we use 'driver_location' action
+      bearerToken,
+      userId,
+      role = 'driver',
       sendIntervalMs = 5000,
       locationProvider = null,
       autoReconnect = true,
       maxReconnectDelayMs = 15000,
     } = options;
 
+    // Authentication happens via message payload after connection opens
+    // Server should accept connection without token in query params
     this.url = url;
-    this.companyId = companyId;
-    this.clientId = clientId;
+    this.bearerToken = bearerToken;
+    this.userId = userId;
     this.role = role || 'driver';
     this.sendIntervalMs = sendIntervalMs;
     this.autoReconnect = autoReconnect;
@@ -135,6 +137,7 @@ class TrackingClient extends SimpleEmitter {
       try {
         this._ws = new WebSocket(this.url);
       } catch (err) {
+        console.error('[TrackingClient] Failed to create WebSocket:', err);
         reject(err);
         return;
       }
@@ -147,13 +150,22 @@ class TrackingClient extends SimpleEmitter {
         resolve();
       });
 
-      this._ws.addEventListener('message', (event) => this._handleMessage(event));
+      this._ws.addEventListener('message', (event) => {
+        this._handleMessage(event);
+      });
 
-      this._ws.addEventListener('close', () => {
+      this._ws.addEventListener('close', (event) => {
+        const closeInfo = {
+          code: event.code,
+          reason: event.reason || '(no reason provided)',
+          wasClean: event.wasClean,
+          codeMeaning: this._getCloseCodeMeaning(event.code)
+        };
+        
         const wasReady = this._ready;
         this._ready = false;
         this._authenticated = false;
-        this.emit('close');
+        this.emit('close', closeInfo);
         this._cleanupTimers();
         if (this._stopLocationProvider) {
           this._stopLocationProvider();
@@ -165,7 +177,21 @@ class TrackingClient extends SimpleEmitter {
       });
 
       this._ws.addEventListener('error', (err) => {
-        this.emit('error', err);
+        const errorDetails = {
+          type: err.type,
+          target: err.target?.url,
+          readyState: this._ws?.readyState,
+          readyStateText: this._getReadyStateText(this._ws?.readyState),
+          url: this.url,
+          timestamp: new Date().toISOString()
+        };
+        
+        if (this._ws?.readyState === WebSocket.CLOSED) {
+          const errorMsg = `WebSocket connection failed. URL: ${this.url}`;
+          reject(new Error(errorMsg));
+        }
+        
+        this.emit('error', { ...err, details: errorDetails });
       });
     });
   }
@@ -184,17 +210,19 @@ class TrackingClient extends SimpleEmitter {
     }
   }
 
-  setClientId(clientId) {
-    this.clientId = clientId;
+  setUserId(userId) {
+    this.userId = userId;
     if (this._ready) {
       this._authenticate();
     }
   }
 
-  setCompanyId(companyId) {
-    this.companyId = companyId;
-    if (this._ready) {
-      this._authenticate();
+  setBearerToken(bearerToken) {
+    this.bearerToken = bearerToken;
+    // Reconnect with new token
+    if (this._ws) {
+      this.disconnect();
+      this.connect();
     }
   }
 
@@ -207,15 +235,16 @@ class TrackingClient extends SimpleEmitter {
   }
 
   _authenticate() {
-    if (!this._ready || !this.companyId || !this.clientId) {
+    if (!this._ready || !this.userId || !this.bearerToken) {
       return;
     }
+    
     const authMessage = {
       action: 'authenticate',
       payload: {
-        company_id: this.companyId,
-        user_id: this.clientId,
-        role: this.role || 'client',
+        user_id: this.userId,
+        role: this.role || 'driver',
+        token: this.bearerToken,
       },
     };
     this._send(authMessage);
@@ -226,6 +255,7 @@ class TrackingClient extends SimpleEmitter {
     try {
       parsed = JSON.parse(event.data);
     } catch (err) {
+      console.warn('[TrackingClient] Failed to parse message:', event.data, err);
       return;
     }
 
@@ -251,7 +281,8 @@ class TrackingClient extends SimpleEmitter {
     }
 
     // Handle error messages
-    if (type === 'error') {
+    if (type === 'error' || action === 'error') {
+      console.error('[TrackingClient] Server error:', payload || parsed);
       this.emit('error', { type: 'server_error', payload: payload || parsed });
       return;
     }
@@ -315,10 +346,9 @@ class TrackingClient extends SimpleEmitter {
       return;
     }
 
-    // Use 'driver_location' action as per the API spec (even though role is 'client')
     const message = {
       action: 'driver_location',
-      id: this.clientId,
+      id: this.userId,
       payload: {
         lat: this._lastLocation.lat,
         lng: this._lastLocation.lng,
@@ -339,7 +369,7 @@ class TrackingClient extends SimpleEmitter {
       const messageStr = JSON.stringify(message);
       this._ws.send(messageStr);
     } catch (err) {
-      console.error('[TrackingClient] Failed to send message', err);
+      console.error('[TrackingClient] Failed to send message:', err, message);
     }
   }
 
@@ -356,6 +386,38 @@ class TrackingClient extends SimpleEmitter {
       clearInterval(this._sendTimer);
       this._sendTimer = null;
     }
+  }
+
+  _getReadyStateText(state) {
+    const states = {
+      0: 'CONNECTING',
+      1: 'OPEN',
+      2: 'CLOSING',
+      3: 'CLOSED'
+    };
+    return states[state] || `UNKNOWN(${state})`;
+  }
+
+  _getCloseCodeMeaning(code) {
+    const meanings = {
+      1000: 'Normal closure',
+      1001: 'Going away',
+      1002: 'Protocol error',
+      1003: 'Unsupported data',
+      1004: 'Reserved',
+      1005: 'No status code',
+      1006: 'Abnormal closure (connection closed without proper handshake)',
+      1007: 'Invalid frame payload data',
+      1008: 'Policy violation',
+      1009: 'Message too big',
+      1010: 'Mandatory extension',
+      1011: 'Internal server error',
+      1012: 'Service restart',
+      1013: 'Try again later',
+      1014: 'Bad gateway',
+      1015: 'TLS handshake failure'
+    };
+    return meanings[code] || `Unknown code (${code})`;
   }
 }
 

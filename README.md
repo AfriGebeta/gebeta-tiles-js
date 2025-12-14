@@ -461,8 +461,8 @@ See [Navigation & Tracking Usage Guide](NAVIGATION_USAGE.md) for documentation.
 await gebetaMap.startNavigation({
   origin: { lat: 9.01, lng: 38.67 },
   destination: { lat: 8.98, lng: 38.88 },
-  companyId: 'your-company-id',
-  clientId: 'unique-client-id'
+  userId: 'unique-user-id',
+  role: 'driver' // optional, defaults to 'driver'
 });
 
 const navController = gebetaMap.getNavigationController();
