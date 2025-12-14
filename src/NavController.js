@@ -206,12 +206,14 @@ class NavController extends SimpleEmitter {
     }
 
     // Emit the first instruction immediately when starting
-    // Show "Continue ahead" initially, or first instruction if it's not a turn
+    // Skip start/destination instructions, show "Continue ahead" initially
     const firstStep = this._instructions[0] || null;
-    if (firstStep && !this._isTurnInstruction(firstStep)) {
+    if (firstStep && !this._isStartOrDestinationInstruction(firstStep) && !this._isTurnInstruction(firstStep)) {
+      // Show first instruction if it's not a start/destination and not a turn
       this.emit('stepchange', { stepIndex: 0, step: firstStep });
       this._lastEmittedInstruction = firstStep;
     } else {
+      // Always start with "Continue ahead" to avoid showing start/destination icons
       const continueStep = this._createContinueInstruction();
       this.emit('stepchange', { stepIndex: null, step: continueStep });
       this._lastEmittedInstruction = continueStep;
@@ -322,8 +324,18 @@ class NavController extends SimpleEmitter {
     });
   }
 
+  _isStartOrDestinationInstruction(step) {
+    if (!step) return false;
+    const type = step.type;
+    // Types 0-6 are start/destination instructions (0=None, 1=Start, 2-3=Start right/left, 4=Destination, 5-6=Destination right/left)
+    return type !== undefined && type !== null && type >= 0 && type <= 6;
+  }
+
   _isTurnInstruction(step) {
     if (!step) return false;
+    // Skip start/destination instructions
+    if (this._isStartOrDestinationInstruction(step)) return false;
+    
     // Check if this is a turn instruction based on maneuver type
     // Valhalla types: 8=Continue, 7=Becomes, 22=Stay straight are NOT turns
     // Types 9-16, 18-21, 26-27 are turns
@@ -332,6 +344,8 @@ class NavController extends SimpleEmitter {
       // If no type, check icon or instruction text
       const icon = step.icon || '';
       const instruction = (step.instruction || '').toLowerCase();
+      // Skip if it's a start/destination icon
+      if (icon.includes('🏁') || icon.includes('📍')) return false;
       // If icon suggests a turn (not straight arrow) or instruction mentions turn
       if (icon.includes('➡️') || icon.includes('⬅️') || icon.includes('↗️') || 
           icon.includes('↖️') || icon.includes('↪️') || icon.includes('🔄') ||
@@ -414,7 +428,11 @@ class NavController extends SimpleEmitter {
     }
 
     if (!withinTurnBuffer) {
-      if (nextStep && isTurn) {
+      // Skip start/destination instructions
+      if (nextStep && this._isStartOrDestinationInstruction(nextStep)) {
+        // Skip start/destination, show "Continue ahead"
+        instructionToShow = this._createContinueInstruction();
+      } else if (nextStep && isTurn) {
         if (distToNext !== null) {
           // Show turn instruction when approaching (within 50m)
           if (distToNext <= TURN_APPROACH_DISTANCE) {
@@ -479,21 +497,26 @@ class NavController extends SimpleEmitter {
     this._updateLocationMarker(location, bearing);
     this._updateCamera(location, bearing);
 
+    // Calculate remaining duration using actual speed if available
+    const currentSpeed = location.speed ?? null; // m/s
+    const avgSpeedKmh = currentSpeed ? (currentSpeed * 3600 / 1000) : 30; // Convert m/s to km/h, default to 30 km/h
+
     this.emit('progress', {
       location,
       snappedPoint: snapped.point,
       distanceFromRoute: snapped.distance,
       remainingDistance,
-      remainingDuration: this._estimateDuration(remainingDistance),
+      remainingDuration: this._estimateDuration(remainingDistance, avgSpeedKmh),
       currentStep: this._instructions[this._stepIndex] || null,
       nextStep: this._instructions[this._stepIndex + 1] || null,
       totalDistance: this._totalDistance,
       bearing: bearing,
-      speed: location.speed ?? null,
+      speed: currentSpeed,
     });
   }
 
   _estimateDuration(distanceMeters, avgSpeedKmh = 30) {
+    if (avgSpeedKmh <= 0) return 0; // Avoid division by zero
     const hours = distanceMeters / 1000 / avgSpeedKmh;
     return Math.round(hours * 60); // minutes
   }
