@@ -4,7 +4,7 @@ import FenceManager from './FenceManager.js';
 import DirectionsManager from './DirectionsManager.js';
 import GeocodingManager from './GeocodingManager.js';
 import NavController from './NavController.js';
-import TrackingClient from './TrackingClient.js';
+import TrackingClient, { HttpTrackingClient } from './TrackingClient.js';
 import './style.css';
 
 class GebetaMaps {
@@ -322,6 +322,7 @@ class GebetaMaps {
    * - waypoints: array of {lat, lng} - optional waypoints for route calculation
    * - userId: string - required for tracking, user identifier
    * - role: string - optional, defaults to 'driver'
+   * - precision: string - 'low' for HTTP tracking (15s updates) or 'high' for WebSocket (5s updates). Defaults to 'high'
    * - useRemoteFeed: boolean to use tracking feed instead of device GPS (advanced)
    * - locationProvider: custom provider with start(cb)->stop() (advanced)
    */
@@ -337,8 +338,9 @@ class GebetaMaps {
       waypoints = [],
       userId,
       role = 'driver',
+      precision = 'high', // 'low' for HTTP, 'high' for WebSocket
       useRemoteFeed = false, 
-      locationProvider = null 
+      locationProvider = null
     } = options;
     
     // Require API key and userId for tracking
@@ -364,30 +366,30 @@ class GebetaMaps {
       }
     }
     
-    // Automatically create and start tracking client
-    // If a custom locationProvider is provided, use it for tracking too
-    if (!this.trackingClient) {
-      this.trackingClient = new TrackingClient({
-        bearerToken: this.apiKey,
-        userId,
-        role: role || 'driver',
-        sendIntervalMs: 5000,
-        locationProvider: locationProvider || undefined // Use custom provider if provided
-      });
-    } else {
-      // Update userId and token if they changed
-      this.trackingClient.setUserId(userId);
-      this.trackingClient.setBearerToken(this.apiKey);
-      // Update location provider if a custom one is provided
-      if (locationProvider) {
-        this.trackingClient._locationProvider = locationProvider;
-      }
-    }
-    
-    // Start tracking (connect to WebSocket and begin sending location)
+    // Automatically create and start tracking client based on precision
     let trackingClient = null;
+    
     try {
-      await this.trackingClient.start();
+      if (precision === 'low') {
+        // Use HTTP tracking client for low precision
+        this.trackingClient = new HttpTrackingClient({
+          bearerToken: this.apiKey,
+          userId,
+          role: role || 'driver',
+          locationProvider: locationProvider || undefined
+        });
+        await this.trackingClient.start();
+      } else {
+        // Use WebSocket tracking client for high precision (default)
+        this.trackingClient = new TrackingClient({
+          bearerToken: this.apiKey,
+          userId,
+          role: role || 'driver',
+          locationProvider: locationProvider || undefined
+        });
+        await this.trackingClient.start();
+      }
+      
       trackingClient = this.trackingClient;
     } catch (error) {
       console.warn('[GebetaMaps] Failed to start tracking client:', error);

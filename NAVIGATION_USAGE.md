@@ -86,13 +86,51 @@ const route = await gebetaMap.getDirections(origin, destination);
 console.log('Instructions:', route.instructions);
 ```
 
+## Precision-Based Tracking
+
+You can specify the tracking precision level when starting navigation:
+> Which precision to use is determined by the API key you provide to the GebetaMaps constructor.
+
+- **High Precision**: Uses WebSocket connection (`wss://track.gebeta.app/v1/track`)
+  - Real-time bidirectional communication
+  - Suitable for applications requiring real-time updates
+  - Default if `precision` is not specified
+
+- **Low Precision**: Uses HTTP POST requests (`https://track.gebeta.app/v1/driver/location`)
+  - Unidirectional communication (client to server)
+  - More efficient for applications that don't need bidirectional communication
+
+Specify the precision level using the `precision` parameter:
+
+```javascript
+// High precision (WebSocket) - default
+await gebetaMap.startNavigation({
+  origin: { lat: 9.01, lng: 38.67 },
+  destination: { lat: 8.98, lng: 38.88 },
+  userId: 'user-123',
+  precision: 'high' // or omit for default
+});
+
+// Low precision (HTTP)
+await gebetaMap.startNavigation({
+  origin: { lat: 9.01, lng: 38.67 },
+  destination: { lat: 8.98, lng: 38.88 },
+  userId: 'user-123',
+  precision: 'low'
+});
+```
+
+**Note**: The backend will validate whether your API key/user is authorized to use the specified precision level.
+
 ## What Happens Automatically
 
 When `startNavigation()` is called with `userId`:
 1. Route is calculated (if origin/destination provided)
 2. GPS tracking starts
-3. WebSocket connection is established and authenticated
-4. Location updates are sent to WebSocket server every 5 seconds
+3. Appropriate tracking client is created based on `precision` parameter:
+   - HTTP client for `precision: 'low'`
+   - WebSocket client for `precision: 'high'` or default
+4. Location updates are sent automatically
 5. Map camera adjusts for navigation view
 6. Turn-by-turn instructions are provided via `stepchange` events
 7. Current location marker is displayed
@@ -101,7 +139,7 @@ When `startNavigation()` is called with `userId`:
 When `stopNavigation()` is called:
 1. Navigation stops
 2. GPS tracking stops
-3. WebSocket connection closes
+3. Tracking connection closes (HTTP or WebSocket)
 4. Map camera returns to original view
 5. Location marker is removed
 
@@ -156,5 +194,6 @@ await gebetaMap.startNavigation({
 
 ## Examples
 
-- [examples/navigation.html](examples/navigation.html) - Full navigation example with search and GPS tracking
+- [examples/navigation.html](examples/navigation.html) - Full navigation example with search and GPS tracking (automatically uses WebSocket or HTTP based on precision)
+- [examples/navigation-http.html](examples/navigation-http.html) - HTTP navigation example demonstrating low-precision tracking
 - [examples/navigation-simulated.html](examples/navigation-simulated.html) - Navigation with simulated location provider

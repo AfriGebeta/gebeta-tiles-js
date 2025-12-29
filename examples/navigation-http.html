@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gebeta Maps - HTTP Navigation (Low Precision)</title>
+  <link rel="stylesheet" href="https://tiles.gebeta.app/static/gebeta-maps-lib.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      max-width: 500px;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .controls.navigation-mode {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .controls h3 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    .controls p {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+    .precision-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #fff3cd;
+      color: #856404;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .input-group {
+      margin-bottom: 12px;
+    }
+    .input-group label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: #007cbf;
+    }
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    button {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button.primary {
+      background: #007cbf;
+      color: white;
+    }
+    button.primary:hover {
+      background: #005a8b;
+    }
+    button.danger {
+      background: #e53955;
+      color: white;
+    }
+    button.danger:hover {
+      background: #c82333;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #f0f0f0;
+      color: #333;
+    }
+    .status.active {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    .nav-toggle-btn {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #007cbf;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      padding: 12px 32px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+      cursor: pointer;
+      z-index: 1300;
+      width: 180px;
+      text-align: center;
+      transition: background-color 0.2s ease;
+      display: none;
+    }
+    .nav-toggle-btn.stop {
+      background: #e53955;
+    }
+    .tracking-info {
+      position: absolute;
+      bottom: 80px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 12px;
+      z-index: 1200;
+      display: none;
+    }
+    .tracking-info.active {
+      display: block;
+    }
+    .tracking-info strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #333;
+    }
+    .tracking-info span {
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="width: 100vw; height: 100vh;"></div>
+  
+  <div class="controls" id="controls">
+    <h3>HTTP Navigation (Low Precision)</h3>
+    <div class="precision-badge">Low Precision Mode</div>
+    <p>This example demonstrates HTTP-based navigation tracking. Location updates are sent every 15 seconds via HTTP POST requests instead of WebSocket. This mode is automatically selected when the authentication response indicates low precision.</p>
+    
+    <div class="input-group">
+      <label for="userId">User ID (required)</label>
+      <input type="text" id="userId" placeholder="e.g., DR_1" value="DR_1" />
+    </div>
+    
+    <div class="input-group">
+      <label for="originLat">Origin Latitude</label>
+      <input type="number" id="originLat" placeholder="9.01" step="0.000001" value="9.01" />
+    </div>
+    
+    <div class="input-group">
+      <label for="originLng">Origin Longitude</label>
+      <input type="number" id="originLng" placeholder="38.67" step="0.000001" value="38.67" />
+    </div>
+    
+    <div class="input-group">
+      <label for="destLat">Destination Latitude</label>
+      <input type="number" id="destLat" placeholder="8.98" step="0.000001" value="8.98" />
+    </div>
+    
+    <div class="input-group">
+      <label for="destLng">Destination Longitude</label>
+      <input type="number" id="destLng" placeholder="38.88" step="0.000001" value="38.88" />
+    </div>
+    
+    <div class="button-group">
+      <button class="primary" onclick="startNavigation()">Start Navigation</button>
+    </div>
+    
+    <div class="status" id="statusMessage"></div>
+  </div>
+  
+  <button class="nav-toggle-btn" id="navToggleBtn" onclick="toggleNavigation()">Stop Navigation</button>
+  
+  <div class="tracking-info" id="trackingInfo">
+    <strong>Tracking Mode:</strong>
+    <span id="trackingMode">-</span>
+    <strong style="margin-top: 8px;">Update Interval:</strong>
+    <span id="updateInterval">-</span>
+  </div>
+
+  <script src="../dist/gebeta-maps.umd.js"></script>
+  <script src="config.js"></script>
+  <script>
+    class NavigationUI {
+      constructor(map, navController, options = {}) {
+        this.map = map;
+        this.nav = navController;
+        this.options = {
+          position: 'top',
+          theme: 'light',
+          onStop: null,
+          ...options,
+        };
+        this._mounted = false;
+        this._container = null;
+        this._instructionEl = null;
+        this._instructionIconEl = null;
+        this._distanceEl = null;
+        this._timeEl = null;
+        this._stopBtn = null;
+        this._bindEvents();
+      }
+
+      _bindEvents() {
+        if (!this.nav) return;
+        
+        this.nav.on('progress', (data) => {
+          this.update(data);
+        });
+        this.nav.on('stepchange', (data) => {
+          if (data.step) {
+            this._setInstruction(data.step);
+          }
+        });
+        this.nav.on('start', () => {
+          if (this.nav.route?.instructions?.[0]) {
+            this._setInstruction(this.nav.route.instructions[0]);
+          }
+        });
+        
+        // If navigation is already active when UI is mounted, update immediately
+        if (this.nav._active && this.nav.route?.instructions?.[0]) {
+          this._setInstruction(this.nav.route.instructions[0]);
+        }
+      }
+
+      mount() {
+        if (this._mounted) return;
+        this._injectStyles();
+        const parent = this.map?.getContainer?.();
+        if (!parent) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'gebeta-nav-wrapper';
+
+        const instructionCard = document.createElement('div');
+        instructionCard.className = 'gebeta-nav-card';
+        const icon = document.createElement('div');
+        icon.className = 'gebeta-nav-icon';
+        icon.textContent = '⬆️';
+        const instructionText = document.createElement('div');
+        instructionText.className = 'gebeta-nav-instruction';
+        instructionText.textContent = 'Ready';
+        instructionCard.appendChild(icon);
+        instructionCard.appendChild(instructionText);
+
+        const metrics = document.createElement('div');
+        metrics.className = 'gebeta-nav-metrics';
+        const distance = document.createElement('div');
+        distance.className = 'gebeta-nav-metric';
+        distance.innerHTML = `<div class="label">Distance</div><div class="value">--</div>`;
+        const time = document.createElement('div');
+        time.className = 'gebeta-nav-metric';
+        time.innerHTML = `<div class="label">Time</div><div class="value">--</div>`;
+        metrics.appendChild(distance);
+        metrics.appendChild(time);
+
+        wrapper.appendChild(instructionCard);
+        wrapper.appendChild(metrics);
+        parent.appendChild(wrapper);
+
+        this._container = wrapper;
+        this._instructionEl = instructionText;
+        this._instructionIconEl = icon;
+        this._distanceEl = distance.querySelector('.value');
+        this._timeEl = time.querySelector('.value');
+        this._mounted = true;
+      }
+
+      hide() {
+        if (this._container && this._container.parentElement) {
+          this._container.parentElement.removeChild(this._container);
+        }
+        this._mounted = false;
+      }
+
+      update(progress) {
+        if (!this._mounted || !progress) return;
+        if (progress.remainingDistance != null) {
+          const km = progress.remainingDistance / 1000;
+          this._distanceEl.textContent = `${km.toFixed(km >= 10 ? 0 : 1)} km`;
+        }
+        if (progress.remainingDuration != null) {
+          const minutes = progress.remainingDuration;
+          if (minutes < 60) {
+            this._timeEl.textContent = `${minutes} min`;
+          } else {
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            this._timeEl.textContent = `${h}h ${m}m`;
+          }
+        }
+      }
+
+      _setInstruction(step) {
+        if (!this._instructionEl || !this._instructionIconEl) return;
+        if (!step) {
+          this._instructionEl.textContent = 'Continue';
+          this._instructionIconEl.textContent = '⬆️';
+          return;
+        }
+        // Use icon from step if available, otherwise default
+        const icon = step.icon || '⬆️';
+        const instruction = step.instruction || step.path || step.turn || 'Continue';
+        this._instructionIconEl.textContent = icon;
+        this._instructionEl.textContent = instruction;
+      }
+
+      _injectStyles() {
+        if (document.getElementById('gebeta-nav-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'gebeta-nav-styles';
+        style.innerHTML = `
+          .gebeta-nav-wrapper {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1200;
+            width: min(460px, calc(100vw - 20px));
+          }
+          .gebeta-nav-card, .gebeta-nav-metrics {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+          }
+          .gebeta-nav-card {
+            gap: 12px;
+          }
+          .gebeta-nav-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: #0c7bdc;
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+            font-weight: 700;
+            flex-shrink: 0;
+          }
+          .gebeta-nav-instruction {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+          }
+          .gebeta-nav-metrics {
+            justify-content: space-around;
+            gap: 20px;
+          }
+          .gebeta-nav-metric {
+            text-align: center;
+            flex: 1;
+          }
+          .gebeta-nav-metric .label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .gebeta-nav-metric .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+
+    let gebetaMap;
+    let map;
+    let navigationUI = null;
+    let trackingClient = null;
+    let lastUpdateTime = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const config = loadConfig();
+      const MY_GEBETA_API_KEY = config.GEBETA_API_KEY;
+      
+      gebetaMap = new GebetaMaps({ 
+        apiKey: MY_GEBETA_API_KEY
+      });
+      
+      map = gebetaMap.init({ container: 'map' });
+    });
+
+    window.startNavigation = async function() {
+      const userId = document.getElementById('userId').value.trim();
+      const originLat = parseFloat(document.getElementById('originLat').value);
+      const originLng = parseFloat(document.getElementById('originLng').value);
+      const destLat = parseFloat(document.getElementById('destLat').value);
+      const destLng = parseFloat(document.getElementById('destLng').value);
+
+      if (!userId) {
+        showStatus('Please provide user ID', 'error');
+        return;
+      }
+
+      if (!originLat || !originLng || !destLat || !destLng) {
+        showStatus('Please provide origin and destination coordinates', 'error');
+        return;
+      }
+
+      try {
+        const origin = { lat: originLat, lng: originLng };
+        const destination = { lat: destLat, lng: destLng };
+
+        // Initialize navigation controller if needed
+        gebetaMap.initNavigationController();
+        const navController = gebetaMap.getNavigationController();
+
+        // Start navigation with low precision (HTTP tracking)
+        await gebetaMap.startNavigation({
+          origin,
+          destination,
+          userId,
+          role: 'driver',
+          precision: 'low', // Use HTTP tracking (15 second updates)
+        });
+
+        // Get the tracking client to check its type and precision
+        trackingClient = gebetaMap.trackingClient;
+        if (trackingClient) {
+          // Check if it's HTTP client by checking if it has the HTTP-specific method or URL
+          // HttpTrackingClient uses HTTP URL, TrackingClient uses WebSocket URL
+          const isHttp = trackingClient.url && trackingClient.url.startsWith('https://');
+          // Get interval from the client (convert ms to seconds)
+          const intervalSeconds = Math.floor((trackingClient.sendIntervalMs || 15000) / 1000);
+          
+          // Update tracking info display
+          document.getElementById('trackingMode').textContent = isHttp ? 'HTTP (Low Precision)' : 'WebSocket (High Precision)';
+          document.getElementById('updateInterval').textContent = `${intervalSeconds} seconds`;
+          document.getElementById('trackingInfo').classList.add('active');
+          
+          // Listen for sent events to show update times
+          trackingClient.on('sent', () => {
+            lastUpdateTime = new Date();
+            updateTrackingInfo();
+          });
+        }
+
+        // Create and mount navigation UI
+        if (!navigationUI) {
+          navigationUI = new NavigationUI(map, navController, {
+            onStop: () => {
+              stopNavigation();
+            }
+          });
+          navigationUI.mount();
+        }
+
+        // Hide controls during navigation
+        document.getElementById('controls').classList.add('navigation-mode');
+        
+        // Show stop button
+        const navBtn = document.getElementById('navToggleBtn');
+        navBtn.textContent = 'Stop Navigation';
+        navBtn.className = 'nav-toggle-btn stop';
+        navBtn.style.display = 'block';
+
+        showStatus('Navigation started successfully', 'active');
+      } catch (error) {
+        console.error('Navigation error:', error);
+        showStatus('Failed to start navigation: ' + error.message, 'error');
+      }
+    };
+
+    window.toggleNavigation = function() {
+      const navController = gebetaMap.getNavigationController();
+      const isNavigating = navController && navController._active;
+      
+      if (isNavigating) {
+        stopNavigation();
+      } else {
+        startNavigation();
+      }
+    };
+
+    function stopNavigation() {
+      gebetaMap.stopNavigation();
+      
+      if (trackingClient) {
+        trackingClient.disconnect();
+        trackingClient = null;
+      }
+      
+      if (navigationUI) {
+        navigationUI.hide();
+        navigationUI = null;
+      }
+      
+      // Hide tracking info
+      document.getElementById('trackingInfo').classList.remove('active');
+      lastUpdateTime = null;
+      
+      // Show controls again
+      document.getElementById('controls').classList.remove('navigation-mode');
+      
+      // Hide stop button
+      document.getElementById('navToggleBtn').style.display = 'none';
+      
+      showStatus('Navigation stopped', 'info');
+    }
+
+    function updateTrackingInfo() {
+      if (lastUpdateTime && trackingClient) {
+        const now = new Date();
+        const secondsAgo = Math.floor((now - lastUpdateTime) / 1000);
+        // Get interval from the client (convert ms to seconds)
+        const intervalSeconds = Math.floor((trackingClient.sendIntervalMs || 15000) / 1000);
+        const nextUpdate = intervalSeconds - secondsAgo;
+        
+        if (nextUpdate > 0) {
+          document.getElementById('updateInterval').textContent = 
+            `${intervalSeconds} seconds (next update in ${nextUpdate}s)`;
+        } else {
+          document.getElementById('updateInterval').textContent = `${intervalSeconds} seconds`;
+        }
+      }
+    }
+
+    // Update tracking info every second
+    setInterval(updateTrackingInfo, 1000);
+
+    function showStatus(message, type = 'info') {
+      const statusEl = document.getElementById('statusMessage');
+      statusEl.textContent = message;
+      statusEl.className = `status ${type}`;
+      
+      if (type === 'error') {
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.className = 'status';
+        }, 5000);
+      }
+    }
+  </script>
+</body>
+</html>
+
