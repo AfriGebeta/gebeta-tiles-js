@@ -15,216 +15,182 @@
       width: 100vw;
       height: 100vh;
     }
-    .controls {
+    .search-container {
       position: absolute;
       top: 10px;
       left: 10px;
       right: 10px;
       z-index: 1000;
       max-width: 500px;
-      background: white;
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       transition: opacity 0.3s ease, visibility 0.3s ease;
     }
-    .controls.navigation-mode {
+    .search-container.navigation-mode {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
     }
-    .controls h3 {
-      margin: 0 0 8px 0;
-      font-size: 18px;
-      color: #333;
-    }
-    .controls p {
-      margin: 0 0 12px 0;
-      font-size: 14px;
-      color: #666;
-      line-height: 1.5;
-    }
-    .precision-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      background: #fff3cd;
-      color: #856404;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-    .input-group {
-      margin-bottom: 12px;
-    }
-    .input-group label {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #333;
-    }
-    .input-group input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 2px solid #e0e0e0;
-      border-radius: 6px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    .input-group input:focus {
-      outline: none;
-      border-color: #007cbf;
-    }
-    .button-group {
+    .search-box {
       display: flex;
       gap: 8px;
-      margin-top: 16px;
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    button {
+    .search-box input {
       flex: 1;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.2s;
+      padding: 10px 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    button.primary {
+    .search-box input:focus {
+      border-color: #007cbf;
+    }
+    .search-box button {
+      padding: 10px 20px;
       background: #007cbf;
       color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
     }
-    button.primary:hover {
+    .search-box button:hover {
       background: #005a8b;
     }
-    button.danger {
-      background: #e53955;
-      color: white;
-    }
-    button.danger:hover {
-      background: #c82333;
-    }
-    button:disabled {
+    .search-box button:disabled {
       background: #ccc;
       cursor: not-allowed;
     }
-    .status {
-      margin-top: 12px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      background: #f0f0f0;
+    .search-results {
+      margin-top: 8px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+    .search-results.visible {
+      display: block;
+    }
+    .search-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .search-result-item:hover {
+      background: #f8f9fa;
+    }
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+    .search-result-item strong {
+      display: block;
       color: #333;
+      font-size: 15px;
+      margin-bottom: 4px;
     }
-    .status.active {
-      background: #d4edda;
-      color: #155724;
+    .search-result-item span {
+      color: #666;
+      font-size: 13px;
     }
-    .status.error {
-      background: #f8d7da;
-      color: #721c24;
+    .status-message {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 1000;
+      display: none;
     }
-    .status.info {
-      background: #d1ecf1;
-      color: #0c5460;
+    .status-message.visible {
+      display: block;
     }
-    .nav-toggle-btn {
+    .nav-controls {
       position: fixed;
       bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
+      z-index: 1300;
+    }
+    .nav-controls button {
+      padding: 12px 32px;
       background: #007cbf;
       color: white;
       border: none;
       border-radius: 24px;
-      padding: 12px 32px;
+      box-shadow: 0 8px 18px rgba(0,124,191,0.35);
       font-size: 14px;
-      font-weight: 700;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+      font-weight: 600;
       cursor: pointer;
-      z-index: 1300;
+      transition: all 0.2s;
       width: 180px;
-      text-align: center;
-      transition: background-color 0.2s ease;
-      display: none;
     }
-    .nav-toggle-btn.stop {
+    .nav-controls button:hover {
+      background: #005a8b;
+    }
+    .nav-controls button.danger {
       background: #e53955;
+      box-shadow: 0 8px 18px rgba(229,57,85,0.35);
     }
-    .tracking-info {
-      position: absolute;
-      bottom: 80px;
-      left: 10px;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 12px 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      font-size: 12px;
-      z-index: 1200;
-      display: none;
+    .nav-controls button.danger:hover {
+      background: #c82333;
     }
-    .tracking-info.active {
-      display: block;
-    }
-    .tracking-info strong {
-      display: block;
-      margin-bottom: 4px;
-      color: #333;
-    }
-    .tracking-info span {
-      color: #666;
+    @media (max-width: 640px) {
+      .search-container {
+        left: 10px;
+        right: 10px;
+      }
+      .nav-controls {
+        top: auto;
+        bottom: 80px;
+        right: 10px;
+      }
     }
   </style>
 </head>
 <body>
   <div id="map" style="width: 100vw; height: 100vh;"></div>
   
-  <div class="controls" id="controls">
-    <h3>HTTP Navigation (Low Precision)</h3>
-    <div class="precision-badge">Low Precision Mode</div>
-    <p>This example demonstrates HTTP-based navigation tracking. Location updates are sent every 15 seconds via HTTP POST requests instead of WebSocket. This mode is automatically selected when the authentication response indicates low precision.</p>
-    
-    <div class="input-group">
-      <label for="userId">User ID (required)</label>
-      <input type="text" id="userId" placeholder="e.g., DR_1" value="DR_1" />
+  <div class="search-container" id="searchContainer">
+    <div class="search-box">
+      <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="Search for a destination..." 
+        autocomplete="off"
+      />
+      <button id="searchBtn" onclick="searchDestination()">Search</button>
     </div>
-    
-    <div class="input-group">
-      <label for="originLat">Origin Latitude</label>
-      <input type="number" id="originLat" placeholder="9.01" step="0.000001" value="9.01" />
+    <div style="margin-top: 8px;">
+      <input 
+        type="text" 
+        id="userId" 
+        placeholder="User ID (e.g., DR_1)" 
+        value="DR_1"
+        style="width: 100%; padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;"
+      />
     </div>
-    
-    <div class="input-group">
-      <label for="originLng">Origin Longitude</label>
-      <input type="number" id="originLng" placeholder="38.67" step="0.000001" value="38.67" />
-    </div>
-    
-    <div class="input-group">
-      <label for="destLat">Destination Latitude</label>
-      <input type="number" id="destLat" placeholder="8.98" step="0.000001" value="8.98" />
-    </div>
-    
-    <div class="input-group">
-      <label for="destLng">Destination Longitude</label>
-      <input type="number" id="destLng" placeholder="38.88" step="0.000001" value="38.88" />
-    </div>
-    
-    <div class="button-group">
-      <button class="primary" onclick="startNavigation()">Start Navigation</button>
-    </div>
-    
-    <div class="status" id="statusMessage"></div>
+    <div id="searchResults" class="search-results"></div>
   </div>
-  
-  <button class="nav-toggle-btn" id="navToggleBtn" onclick="toggleNavigation()">Stop Navigation</button>
-  
-  <div class="tracking-info" id="trackingInfo">
-    <strong>Tracking Mode:</strong>
-    <span id="trackingMode">-</span>
-    <strong style="margin-top: 8px;">Update Interval:</strong>
-    <span id="updateInterval">-</span>
+
+  <div class="nav-controls">
+    <button class="primary" id="navToggleBtn" onclick="toggleNavigation()" style="display: none;">Start Navigation</button>
   </div>
+
+  <div id="statusMessage" class="status-message"></div>
+  
 
   <script src="../dist/gebeta-maps.umd.js"></script>
   <script src="config.js"></script>
@@ -252,15 +218,20 @@
       _bindEvents() {
         if (!this.nav) return;
         
+        console.log('NavigationUI: Binding events to NavController');
+        
         this.nav.on('progress', (data) => {
+          console.log('NavigationUI: Received progress event', data);
           this.update(data);
         });
         this.nav.on('stepchange', (data) => {
+          console.log('NavigationUI: Received stepchange event', data);
           if (data.step) {
             this._setInstruction(data.step);
           }
         });
         this.nav.on('start', () => {
+          console.log('NavigationUI: Received start event');
           if (this.nav.route?.instructions?.[0]) {
             this._setInstruction(this.nav.route.instructions[0]);
           }
@@ -268,7 +239,14 @@
         
         // If navigation is already active when UI is mounted, update immediately
         if (this.nav._active && this.nav.route?.instructions?.[0]) {
+          console.log('NavigationUI: Navigation already active, setting initial instruction');
           this._setInstruction(this.nav.route.instructions[0]);
+        } else if (this.nav._active) {
+          console.log('NavigationUI: Navigation active but no instructions found', {
+            hasRoute: !!this.nav.route,
+            instructionsCount: this.nav.route?.instructions?.length || 0,
+            routeKeys: this.nav.route ? Object.keys(this.nav.route) : []
+          });
         }
       }
 
@@ -426,9 +404,16 @@
 
     let gebetaMap;
     let map;
-    let navigationUI = null;
+    let currentLocation = null;
+    let currentLocationMarker = null;
+    let destinationLocation = null;
+    let destinationMarker = null;
+    let searchResults = [];
     let trackingClient = null;
-    let lastUpdateTime = null;
+    let locationProvider = null;
+    let navigationUI = null;
+    let locationWatchId = null;
+    let locationCallbacks = [];
 
     document.addEventListener('DOMContentLoaded', () => {
       const config = loadConfig();
@@ -438,65 +423,328 @@
         apiKey: MY_GEBETA_API_KEY
       });
       
-      map = gebetaMap.init({ container: 'map' });
+      map = gebetaMap.init({
+        container: 'map',
+        center: [38.7685, 9.0161],
+        zoom: 12,
+      });
+
+      map.on('load', () => {
+        gebetaMap.addNavigationControls();
+      });
+
+      // Allow Enter key to search
+      document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          searchDestination();
+        }
+      });
+
+      // Close search results when clicking outside
+      document.addEventListener('click', (e) => {
+        const searchContainer = document.querySelector('.search-container');
+        if (!searchContainer.contains(e.target)) {
+          document.getElementById('searchResults').classList.remove('visible');
+        }
+      });
     });
 
-    window.startNavigation = async function() {
-      const userId = document.getElementById('userId').value.trim();
-      const originLat = parseFloat(document.getElementById('originLat').value);
-      const originLng = parseFloat(document.getElementById('originLng').value);
-      const destLat = parseFloat(document.getElementById('destLat').value);
-      const destLng = parseFloat(document.getElementById('destLng').value);
-
-      if (!userId) {
-        showStatus('Please provide user ID', 'error');
+    async function searchDestination() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) {
+        showStatus('Please enter a destination to search', 'error');
         return;
       }
 
-      if (!originLat || !originLng || !destLat || !destLng) {
-        showStatus('Please provide origin and destination coordinates', 'error');
+      const resultsDiv = document.getElementById('searchResults');
+      resultsDiv.innerHTML = '<div style="padding: 12px; color: #666;">Searching...</div>';
+      resultsDiv.classList.add('visible');
+
+      try {
+        const results = await gebetaMap.geocode(query);
+        searchResults = results;
+        displaySearchResults(results);
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        resultsDiv.innerHTML = '<div style="padding: 12px; color: #e53955;">Error: ' + error.message + '</div>';
+        showStatus('Search failed: ' + error.message, 'error');
+      }
+    }
+
+    function displaySearchResults(results) {
+      const resultsDiv = document.getElementById('searchResults');
+      
+      if (!results || results.length === 0) {
+        resultsDiv.innerHTML = '<div style="padding: 12px; color: #666;">No results found</div>';
+        return;
+      }
+
+      resultsDiv.innerHTML = results.map((result, index) => {
+        const name = result.name || result.Name || 'Unknown';
+        const city = result.city || result.City || '';
+        const country = result.country || result.Country || '';
+        const address = [city, country].filter(Boolean).join(', ');
+        
+        return `
+          <div class="search-result-item" onclick="selectDestination(${index})">
+            <strong>${name}</strong>
+            ${address ? `<span>${address}</span>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectDestination(index) {
+      const result = searchResults[index];
+      if (!result) return;
+
+      destinationLocation = {
+        lat: parseFloat(result.latitude || result.lat),
+        lng: parseFloat(result.longitude || result.lng || result.lon)
+      };
+
+      // Remove existing destination marker
+      if (destinationMarker && destinationMarker.marker) {
+        destinationMarker.marker.remove();
+      }
+
+      // Add destination marker
+      destinationMarker = gebetaMap.addImageMarker(
+        [destinationLocation.lng, destinationLocation.lat],
+        'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
+        [30, 30]
+      );
+
+      // Close search results
+      document.getElementById('searchResults').classList.remove('visible');
+      document.getElementById('searchInput').value = result.name || result.Name || '';
+
+      // Show start navigation button
+      updateNavButtons();
+    }
+
+    function updateNavButtons() {
+      const navController = gebetaMap.getNavigationController();
+      const isNavigating = navController && navController._active;
+      const navBtn = document.getElementById('navToggleBtn');
+      
+      if (isNavigating) {
+        navBtn.textContent = 'Stop Navigation';
+        navBtn.className = 'danger';
+        navBtn.style.display = 'block';
+      } else if (destinationLocation) {
+        navBtn.textContent = 'Start Navigation';
+        navBtn.className = 'primary';
+        navBtn.style.display = 'block';
+      } else {
+        navBtn.style.display = 'none';
+      }
+    }
+
+    window.startNavigation = async function() {
+      if (!destinationLocation) {
+        showStatus('Please select a destination first', 'error');
         return;
       }
 
       try {
-        const origin = { lat: originLat, lng: originLng };
-        const destination = { lat: destLat, lng: destLng };
+        // Get current location first (this will ask for permission)
+        await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error('Geolocation is not supported by your browser'));
+            return;
+          }
 
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              currentLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              
+              // Add current location marker
+              if (currentLocationMarker && currentLocationMarker.marker) {
+                currentLocationMarker.marker.remove();
+              }
+              currentLocationMarker = gebetaMap.addImageMarker(
+                [currentLocation.lng, currentLocation.lat],
+                'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
+                [30, 30]
+              );
+              
+              resolve();
+            },
+            (error) => {
+              reject(new Error('Could not get your location. Please enable location services.'));
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            }
+          );
+        });
+        
+        // Store the last known location so we can provide it immediately to new callbacks
+        let lastKnownLocation = {
+          lat: currentLocation.lat,
+          lng: currentLocation.lng,
+          speed: null,
+          bearing: null,
+          timestamp: Date.now(),
+        };
+        
+        // Start watchPosition for continuous updates FIRST
+        // This ensures location updates are flowing before we create the provider
+        locationWatchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const loc = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              speed: position.coords.speed ?? null,
+              bearing: position.coords.heading ?? null,
+              timestamp: position.timestamp,
+            };
+            
+            // Update current location
+            currentLocation = { lat: loc.lat, lng: loc.lng };
+            
+            // Update marker
+            if (currentLocationMarker && currentLocationMarker.marker) {
+              currentLocationMarker.marker.remove();
+            }
+            currentLocationMarker = gebetaMap.addImageMarker(
+              [loc.lng, loc.lat],
+              'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
+              [30, 30]
+            );
+            
+            // Update last known location and notify all callbacks
+            lastKnownLocation = loc;
+            if (locationProvider) {
+              locationProvider.lastKnownLocation = lastKnownLocation;
+            }
+            locationCallbacks.forEach(cb => cb(loc));
+          },
+          (error) => {
+            console.warn('Geolocation watch error:', error);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 5000,
+            timeout: 30000,
+          }
+        );
+        
+        // Create location provider that uses the watch (AFTER watchPosition is started)
+        locationProvider = {
+          lastKnownLocation: lastKnownLocation,
+          start: (onLocation) => {
+            locationCallbacks.push(onLocation);
+            
+            // Immediately provide the last known location to the new callback
+            if (lastKnownLocation) {
+              onLocation(lastKnownLocation);
+            }
+            
+            return () => {
+              const index = locationCallbacks.indexOf(onLocation);
+              if (index > -1) {
+                locationCallbacks.splice(index, 1);
+              }
+            };
+          },
+          stop: () => {
+            if (locationWatchId !== null) {
+              navigator.geolocation.clearWatch(locationWatchId);
+              locationWatchId = null;
+              locationCallbacks = [];
+            }
+          }
+        };
+        
         // Initialize navigation controller if needed
         gebetaMap.initNavigationController();
         const navController = gebetaMap.getNavigationController();
-
-        // Start navigation with low precision (HTTP tracking)
+        
+        // Debug: Listen to NavController events
+        navController.on('start', (data) => {
+          console.log('NavController: start event', data);
+        });
+        navController.on('progress', (data) => {
+          console.log('NavController: progress event', data);
+        });
+        navController.on('stepchange', (data) => {
+          console.log('NavController: stepchange event', data);
+        });
+        navController.on('offroute', (data) => {
+          console.log('NavController: offroute event', data);
+        });
+        navController.on('arrive', (data) => {
+          console.log('NavController: arrive event', data);
+        });
+        
+        // Get user ID from input
+        const userId = document.getElementById('userId').value.trim() || 'DR_1';
+        
+        if (!userId) {
+          showStatus('Please provide user ID', 'error');
+          return;
+        }
+        
+        // Ensure location provider has the latest location before starting navigation
+        // This ensures NavController gets an immediate location update
+        if (locationProvider && lastKnownLocation) {
+          locationProvider.lastKnownLocation = lastKnownLocation;
+        }
+        
+        // Start navigation from current location to destination with low precision (HTTP tracking)
         await gebetaMap.startNavigation({
-          origin,
-          destination,
+          origin: currentLocation,
+          destination: destinationLocation,
           userId,
           role: 'driver',
-          precision: 'low', // Use HTTP tracking (15 second updates)
+          precision: 'low', // Use HTTP tracking
+          locationProvider: locationProvider,
         });
-
-        // Get the tracking client to check its type and precision
-        trackingClient = gebetaMap.trackingClient;
-        if (trackingClient) {
-          // Check if it's HTTP client by checking if it has the HTTP-specific method or URL
-          // HttpTrackingClient uses HTTP URL, TrackingClient uses WebSocket URL
-          const isHttp = trackingClient.url && trackingClient.url.startsWith('https://');
-          // Get interval from the client (convert ms to seconds)
-          const intervalSeconds = Math.floor((trackingClient.sendIntervalMs || 15000) / 1000);
-          
-          // Update tracking info display
-          document.getElementById('trackingMode').textContent = isHttp ? 'HTTP (Low Precision)' : 'WebSocket (High Precision)';
-          document.getElementById('updateInterval').textContent = `${intervalSeconds} seconds`;
-          document.getElementById('trackingInfo').classList.add('active');
-          
-          // Listen for sent events to show update times
-          trackingClient.on('sent', () => {
-            lastUpdateTime = new Date();
-            updateTrackingInfo();
+        
+        // Give NavController a moment to initialize, then manually trigger location update
+        // This ensures it processes the current location even if route wasn't ready initially
+        setTimeout(() => {
+          console.log('Checking NavController state:', {
+            active: navController._active,
+            hasRoute: !!navController.route,
+            hasCoordinates: !!navController.route?.geometry?.coordinates,
+            instructionsCount: navController.route?.instructions?.length || 0,
+            hasLocationProvider: !!locationProvider,
+            lastKnownLocation: locationProvider?.lastKnownLocation,
+            locationCallbacksCount: locationCallbacks.length
           });
-        }
+          
+          if (locationProvider && locationProvider.lastKnownLocation && navController._active) {
+            const loc = locationProvider.lastKnownLocation;
+            console.log('Manually triggering location update:', loc);
+            // Manually trigger location callback to ensure NavController processes it
+            locationCallbacks.forEach(cb => {
+              try {
+                cb(loc);
+              } catch (err) {
+                console.warn('Error in location callback:', err);
+              }
+            });
+            
+            // Also manually call _handleLocation if route is ready
+            if (navController.route?.geometry?.coordinates && navController._active) {
+              console.log('Manually calling _handleLocation');
+              navController._handleLocation(loc);
+            }
+          }
+        }, 1000);
 
-        // Create and mount navigation UI
+        // Get the tracking client
+        trackingClient = gebetaMap.trackingClient;
+        
+        // Create and mount navigation UI after route is calculated
         if (!navigationUI) {
           navigationUI = new NavigationUI(map, navController, {
             onStop: () => {
@@ -504,18 +752,52 @@
             }
           });
           navigationUI.mount();
+          
+          // Manually set the first instruction if navigation is already active
+          if (navController._active) {
+            console.log('NavigationUI mounted, checking route state:', {
+              active: navController._active,
+              hasRoute: !!navController.route,
+              instructionsCount: navController.route?.instructions?.length || 0,
+              firstInstruction: navController.route?.instructions?.[0]
+            });
+            
+            // Try to get instruction from _instructions array (NavController's internal array)
+            const firstStep = navController._instructions?.[0] || navController.route?.instructions?.[0];
+            if (firstStep) {
+              console.log('Setting first instruction:', firstStep);
+              navigationUI._setInstruction(firstStep);
+            } else {
+              // Fallback to "Continue ahead"
+              const continueStep = {
+                instruction: 'Continue ahead',
+                icon: '⬆️',
+                type: 8
+              };
+              console.log('No instruction found, using continue step:', continueStep);
+              navigationUI._setInstruction(continueStep);
+            }
+          }
+        }
+        
+        // Debug: Check if NavController is receiving location updates
+        console.log('Navigation started:', {
+          active: navController._active,
+          hasRoute: !!navController.route,
+          hasCoordinates: !!navController.route?.geometry?.coordinates,
+          instructionsCount: navController.route?.instructions?.length || 0,
+          _instructionsCount: navController._instructions?.length || 0,
+          hasLocationProvider: !!locationProvider,
+          lastKnownLocation: locationProvider?.lastKnownLocation
+        });
+
+        // Hide search container during navigation
+        const searchContainer = document.querySelector('.search-container');
+        if (searchContainer) {
+          searchContainer.classList.add('navigation-mode');
         }
 
-        // Hide controls during navigation
-        document.getElementById('controls').classList.add('navigation-mode');
-        
-        // Show stop button
-        const navBtn = document.getElementById('navToggleBtn');
-        navBtn.textContent = 'Stop Navigation';
-        navBtn.className = 'nav-toggle-btn stop';
-        navBtn.style.display = 'block';
-
-        showStatus('Navigation started successfully', 'active');
+        updateNavButtons();
       } catch (error) {
         console.error('Navigation error:', error);
         showStatus('Failed to start navigation: ' + error.message, 'error');
@@ -546,48 +828,30 @@
         navigationUI = null;
       }
       
-      // Hide tracking info
-      document.getElementById('trackingInfo').classList.remove('active');
-      lastUpdateTime = null;
-      
-      // Show controls again
-      document.getElementById('controls').classList.remove('navigation-mode');
-      
-      // Hide stop button
-      document.getElementById('navToggleBtn').style.display = 'none';
-      
-      showStatus('Navigation stopped', 'info');
-    }
-
-    function updateTrackingInfo() {
-      if (lastUpdateTime && trackingClient) {
-        const now = new Date();
-        const secondsAgo = Math.floor((now - lastUpdateTime) / 1000);
-        // Get interval from the client (convert ms to seconds)
-        const intervalSeconds = Math.floor((trackingClient.sendIntervalMs || 15000) / 1000);
-        const nextUpdate = intervalSeconds - secondsAgo;
-        
-        if (nextUpdate > 0) {
-          document.getElementById('updateInterval').textContent = 
-            `${intervalSeconds} seconds (next update in ${nextUpdate}s)`;
-        } else {
-          document.getElementById('updateInterval').textContent = `${intervalSeconds} seconds`;
-        }
+      // Stop location watching
+      if (locationProvider) {
+        locationProvider.stop();
+        locationProvider = null;
       }
+      
+      // Show search container again
+      const searchContainer = document.querySelector('.search-container');
+      if (searchContainer) {
+        searchContainer.classList.remove('navigation-mode');
+      }
+      
+      updateNavButtons();
     }
 
-    // Update tracking info every second
-    setInterval(updateTrackingInfo, 1000);
 
     function showStatus(message, type = 'info') {
       const statusEl = document.getElementById('statusMessage');
       statusEl.textContent = message;
-      statusEl.className = `status ${type}`;
+      statusEl.className = `status-message visible`;
       
       if (type === 'error') {
         setTimeout(() => {
-          statusEl.textContent = '';
-          statusEl.className = 'status';
+          statusEl.classList.remove('visible');
         }, 5000);
       }
     }
