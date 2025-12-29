@@ -313,8 +313,11 @@ class TrackingClient extends SimpleEmitter {
     if (!this._stopLocationProvider) {
       try {
         const maybeStop = this._locationProvider.start((location) => {
-          this._lastLocation = this._decorateLocation(location);
-          this.emit('local_location', this._lastLocation);
+          const decorated = this._decorateLocation(location);
+          if (decorated) {
+            this._lastLocation = decorated;
+            this.emit('local_location', this._lastLocation);
+          }
         });
         if (typeof maybeStop === 'function') {
           this._stopLocationProvider = maybeStop;
@@ -341,33 +344,71 @@ class TrackingClient extends SimpleEmitter {
   }
 
   _decorateLocation(location) {
+    // Ensure lat, lng, and timestamp are valid numbers
+    const lat = typeof location.lat === 'number' && !isNaN(location.lat) ? location.lat : null;
+    const lng = typeof location.lng === 'number' && !isNaN(location.lng) ? location.lng : null;
+    const timestamp = typeof location.timestamp === 'number' && !isNaN(location.timestamp) && location.timestamp > 0
+      ? location.timestamp 
+      : Date.now();
+
+    if (lat == null || lng == null) {
+      console.warn('[TrackingClient] Invalid location data received:', location);
+      return null;
+    }
+
     return {
-      lat: location.lat,
-      lng: location.lng,
+      lat: lat,
+      lng: lng,
       speed: location.speed ?? null,
       bearing: location.bearing ?? null,
-      timestamp: location.timestamp ?? Date.now(),
+      timestamp: timestamp,
     };
   }
 
   _flushLatestLocation() {
     if (!this._ready || !this._authenticated || !this._lastLocation) {
+      console.warn('[TrackingClient] Cannot send location - missing prerequisites:', {
+        ready: this._ready,
+        authenticated: this._authenticated,
+        hasLocation: !!this._lastLocation
+      });
       return;
     }
 
-    // Ensure timestamp is always a valid number
-    const timestamp = this._lastLocation.timestamp || Date.now();
+    // Validate required fields - ensure they are valid numbers
+    const lat = typeof this._lastLocation.lat === 'number' ? this._lastLocation.lat : null;
+    const lng = typeof this._lastLocation.lng === 'number' ? this._lastLocation.lng : null;
+    const timestamp = typeof this._lastLocation.timestamp === 'number' 
+      ? this._lastLocation.timestamp 
+      : Date.now();
 
+    // Ensure lat, lng, and timestamp are valid before sending
+    if (lat == null || isNaN(lat) || lng == null || isNaN(lng) || timestamp == null || isNaN(timestamp)) {
+      console.warn('[TrackingClient] Skipping location update - missing or invalid required fields:', {
+        lat,
+        lng,
+        timestamp,
+        hasLocation: !!this._lastLocation,
+        locationData: this._lastLocation
+      });
+      return;
+    }
+
+    // WebSocket format: action, id, and payload with location data
+    // Convert timestamp to seconds (Unix timestamp) like HTTP client
+    const time_stamp = Math.floor(timestamp / 1000);
+    
     const message = {
       action: 'driver_location',
       id: this.userId,
       payload: {
-        lat: this._lastLocation.lat,
-        lng: this._lastLocation.lng,
-        timestamp: timestamp,
+        lat: lat,
+        lng: lng,
+        time_stamp: time_stamp, // WebSocket uses time_stamp in seconds in payload
       },
     };
 
+    console.log('[TrackingClient] Sending location update:', JSON.stringify(message, null, 2));
     this._send(message);
     this.emit('sent', { location: this._lastLocation });
   }
@@ -513,8 +554,11 @@ class HttpTrackingClient extends SimpleEmitter {
     if (!this._stopLocationProvider) {
       try {
         const maybeStop = this._locationProvider.start((location) => {
-          this._lastLocation = this._decorateLocation(location);
-          this.emit('local_location', this._lastLocation);
+          const decorated = this._decorateLocation(location);
+          if (decorated) {
+            this._lastLocation = decorated;
+            this.emit('local_location', this._lastLocation);
+          }
         });
         if (typeof maybeStop === 'function') {
           this._stopLocationProvider = maybeStop;
@@ -522,7 +566,7 @@ class HttpTrackingClient extends SimpleEmitter {
           this._stopLocationProvider = () => this._locationProvider.stop();
         }
       } catch (err) {
-        console.error('[HttpTrackingClient] Failed to start location provider', err);
+        console.error('[TrackingClient] Failed to start location provider', err);
         this.emit('error', err);
         return;
       }
@@ -539,12 +583,24 @@ class HttpTrackingClient extends SimpleEmitter {
   }
 
   _decorateLocation(location) {
+    // Ensure lat, lng, and timestamp are valid numbers
+    const lat = typeof location.lat === 'number' && !isNaN(location.lat) ? location.lat : null;
+    const lng = typeof location.lng === 'number' && !isNaN(location.lng) ? location.lng : null;
+    const timestamp = typeof location.timestamp === 'number' && !isNaN(location.timestamp) && location.timestamp > 0
+      ? location.timestamp 
+      : Date.now();
+
+    if (lat == null || lng == null) {
+      console.warn('[HttpTrackingClient] Invalid location data received:', location);
+      return null;
+    }
+
     return {
-      lat: location.lat,
-      lng: location.lng,
+      lat: lat,
+      lng: lng,
       speed: location.speed ?? null,
       bearing: location.bearing ?? null,
-      timestamp: location.timestamp ?? Date.now(),
+      timestamp: timestamp,
     };
   }
 
