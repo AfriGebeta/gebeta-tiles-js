@@ -82,6 +82,9 @@ export class BrowserLocationProvider {
   }
 }
 
+// Tracking interval constant
+const TRACKING_INTERVAL_MS = 15000; // 15 seconds
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -98,7 +101,7 @@ class TrackingClient extends SimpleEmitter {
       bearerToken,
       userId,
       role = 'driver',
-      sendIntervalMs = 5000,
+      sendIntervalMs = TRACKING_INTERVAL_MS,
       locationProvider = null,
       autoReconnect = true,
       maxReconnectDelayMs = 15000,
@@ -122,6 +125,7 @@ class TrackingClient extends SimpleEmitter {
     this._locationProvider = locationProvider || new BrowserLocationProvider();
     this._stopLocationProvider = null;
     this._lastLocation = null;
+    this._precision = null; // 'low' or 'high' from authentication response
   }
 
   async start() {
@@ -226,6 +230,10 @@ class TrackingClient extends SimpleEmitter {
     }
   }
 
+  getPrecision() {
+    return this._precision;
+  }
+
   setSendInterval(ms) {
     this.sendIntervalMs = ms;
     if (this._sendTimer) {
@@ -265,7 +273,8 @@ class TrackingClient extends SimpleEmitter {
     if (action === 'authenticated' || action === 'auth_success' || type === 'auth_ok') {
       this._authenticated = true;
       this._reconnectAttempts = 0;
-      this.emit('authenticated', payload || {});
+      const authPayload = payload || {};
+      this.emit('authenticated', authPayload);
       this._startLocationStreaming();
       return;
     }
@@ -346,14 +355,16 @@ class TrackingClient extends SimpleEmitter {
       return;
     }
 
+    // Ensure timestamp is always a valid number
+    const timestamp = this._lastLocation.timestamp || Date.now();
+
     const message = {
       action: 'driver_location',
       id: this.userId,
       payload: {
         lat: this._lastLocation.lat,
         lng: this._lastLocation.lng,
-        speed: this._lastLocation.speed,
-        bearing: this._lastLocation.bearing,
+        timestamp: timestamp,
       },
     };
 
@@ -421,5 +432,196 @@ class TrackingClient extends SimpleEmitter {
   }
 }
 
+/**
+ * HttpTrackingClient uses HTTP POST requests for low-precision tracking.
+ * Sends location updates every 15 seconds to the tracking API.
+ */
+class HttpTrackingClient extends SimpleEmitter {
+  constructor(options = {}) {
+    super();
+    const {
+      url = 'https://track.gebeta.app/v1/driver/location',
+      bearerToken,
+      userId,
+      role = 'driver',
+      sendIntervalMs = TRACKING_INTERVAL_MS,
+      locationProvider = null,
+    } = options;
+
+    this.url = url;
+    this.bearerToken = bearerToken;
+    this.userId = userId;
+    this.role = role || 'driver';
+    this.sendIntervalMs = sendIntervalMs;
+    this._locationProvider = locationProvider || new BrowserLocationProvider();
+    this._stopLocationProvider = null;
+    this._sendTimer = null;
+    this._lastLocation = null;
+    this._authenticated = false;
+    this._precision = 'low'; // HTTP tracking is always low precision
+  }
+
+  async start() {
+    // For HTTP tracking, we don't need to authenticate separately
+    // Authentication happens via Bearer token in headers
+    this._authenticated = true;
+    this.emit('authenticated', { precision: 'low' });
+    this._startLocationStreaming();
+  }
+
+  disconnect() {
+    this._cleanupTimers();
+    if (this._stopLocationProvider) {
+      this._stopLocationProvider();
+      this._stopLocationProvider = null;
+    }
+    this._authenticated = false;
+    this.emit('close', {});
+  }
+
+  setUserId(userId) {
+    this.userId = userId;
+  }
+
+  setBearerToken(bearerToken) {
+    this.bearerToken = bearerToken;
+  }
+
+  setSendInterval(ms) {
+    this.sendIntervalMs = ms;
+    if (this._sendTimer) {
+      clearInterval(this._sendTimer);
+      this._sendTimer = setInterval(() => this._flushLatestLocation(), this.sendIntervalMs);
+    }
+  }
+
+  getPrecision() {
+    return this._precision;
+  }
+
+  _startLocationStreaming() {
+    if (!this._authenticated) return;
+    if (!this._locationProvider) {
+      return;
+    }
+
+    if (this._sendTimer) {
+      clearInterval(this._sendTimer);
+      this._sendTimer = null;
+    }
+
+    if (!this._stopLocationProvider) {
+      try {
+        const maybeStop = this._locationProvider.start((location) => {
+          this._lastLocation = this._decorateLocation(location);
+          this.emit('local_location', this._lastLocation);
+        });
+        if (typeof maybeStop === 'function') {
+          this._stopLocationProvider = maybeStop;
+        } else if (this._locationProvider.stop) {
+          this._stopLocationProvider = () => this._locationProvider.stop();
+        }
+      } catch (err) {
+        console.error('[HttpTrackingClient] Failed to start location provider', err);
+        this.emit('error', err);
+        return;
+      }
+    }
+
+    // Start the timer after a small delay to ensure location provider callback has been called
+    setTimeout(() => {
+      this._sendTimer = setInterval(() => this._flushLatestLocation(), this.sendIntervalMs);
+      // Also try to send immediately if we have a location
+      if (this._lastLocation) {
+        this._flushLatestLocation();
+      }
+    }, 100);
+  }
+
+  _decorateLocation(location) {
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      speed: location.speed ?? null,
+      bearing: location.bearing ?? null,
+      timestamp: location.timestamp ?? Date.now(),
+    };
+  }
+
+  async _flushLatestLocation() {
+    if (!this._authenticated || !this._lastLocation || !this.bearerToken || !this.userId) {
+      return;
+    }
+
+    // Validate required fields - ensure they are valid numbers
+    const lat = typeof this._lastLocation.lat === 'number' ? this._lastLocation.lat : null;
+    const lng = typeof this._lastLocation.lng === 'number' ? this._lastLocation.lng : null;
+    const timestamp = typeof this._lastLocation.timestamp === 'number' 
+      ? this._lastLocation.timestamp 
+      : Date.now();
+
+    // Ensure lat, lng, and timestamp are valid before sending
+    if (lat == null || isNaN(lat) || lng == null || isNaN(lng) || timestamp == null || isNaN(timestamp)) {
+      console.warn('[HttpTrackingClient] Skipping location update - missing or invalid required fields:', {
+        lat,
+        lng,
+        timestamp,
+        hasLocation: !!this._lastLocation,
+        locationData: this._lastLocation
+      });
+      return;
+    }
+
+    try {
+      // Convert timestamp to seconds (Unix timestamp) if it's in milliseconds
+      const time_stamp = Math.floor(timestamp / 1000);
+
+      // Format matches server expectation: action, id, payload with time_stamp
+      const message = {
+        action: 'driver_location',
+        id: this.userId,
+        payload: {
+          lat: lat,
+          lng: lng,
+          time_stamp: time_stamp,
+        }
+      };
+
+      const response = await fetch(this.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.bearerToken}`,
+        },
+        body: JSON.stringify(message),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[HttpTrackingClient] Failed to send location:', response.status, errorText);
+        this.emit('error', { 
+          type: 'http_error', 
+          status: response.status, 
+          message: errorText 
+        });
+        return;
+      }
+
+      this.emit('sent', { location: this._lastLocation });
+    } catch (err) {
+      console.error('[HttpTrackingClient] Failed to send location:', err);
+      this.emit('error', { type: 'network_error', error: err });
+    }
+  }
+
+  _cleanupTimers() {
+    if (this._sendTimer) {
+      clearInterval(this._sendTimer);
+      this._sendTimer = null;
+    }
+  }
+}
+
 export default TrackingClient;
+export { HttpTrackingClient };
 
